@@ -42,7 +42,7 @@ def main_internal(sys_args: list[str]) -> None:
             raise ValueError("opts.area is not defined")
         if not opts.dataSource:
             raise ValueError("opts.dataSource is not defined")
-        hgtDataFiles = NASASRTMUtil.getFiles(
+        hgtDataFiles = NASASRTMUtil.get_files(
             opts.area,
             opts.polygon,
             opts.srtmCorrx,

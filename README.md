@@ -1,4 +1,5 @@
 [![Python: 3.9, 3.10, 3.11, 3.12, 3.13, 3.14](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue)](https://www.python.org)
+![PyPI - Wheel](https://img.shields.io/pypi/wheel/pyhgtmap)
 ![GitHub](https://img.shields.io/github/license/agrenott/pyhgtmap)
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/agrenott/pyhgtmap/pythonpackage.yaml)
 [![Hatch project](https://img.shields.io/badge/%F0%9F%A5%9A-Hatch-4051b5.svg)](https://github.com/pypa/hatch)
@@ -58,6 +59,8 @@ This source require usage of Google Drive API. To use it, you have to generate A
 [ALOS Global Digital Surface Model "ALOS World 3D - 30m (AW3D30)"](https://www.eorc.jaxa.jp/ALOS/en/dataset/aw3d30/aw3d30_e.htm)
 
 *Available for 1" resolution only.*
+
+*This source requires TIFF support.*
 
 This source requires creating an AW3D30 account on https://www.eorc.jaxa.jp/ALOS/en/dataset/aw3d30/registration.htm.
 

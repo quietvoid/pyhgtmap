@@ -1,27 +1,29 @@
-import warnings
+import os
 from unittest.mock import MagicMock, call, patch
 
+import numpy as np
+import pytest
+
+from pyhgtmap import Coordinates, PolygonsList
 from pyhgtmap.configuration import Configuration
-from pyhgtmap.NASASRTMUtil import getFiles, parseSRTMv3CoverageKml
+from pyhgtmap.hgt.file import parse_polygons_file
+from pyhgtmap.NASASRTMUtil import (
+    area_needed,
+    calc_bbox,
+    get_files,
+    intersect_tiles,
+    make_file_name_prefix,
+    make_file_name_prefixes,
+)
 
-# Truncated version of NASA's SRTM v3 index KML file
-SRTM_V3_IDX_KML = b'<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document id="root_doc">\n<Schema name="srtm_v3_srtmgl1" id="srtm_v3_srtmgl1">\n<SimpleField name="ID" type="float"></SimpleField>\n</Schema>\n<Folder><name>srtm_v3_srtmgl1</name>\n<Placemark>\n<Style><LineStyle><width>3</width></LineStyle><PolyStyle><color>7d8f63ac</color></PolyStyle></Style>\n<ExtendedData><SchemaData schemaUrl="#srtm_v3_srtmgl1">\n<SimpleData name="ID">5e83a3b51402798</SimpleData>\n</SchemaData></ExtendedData>\n<MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>157.989699999999999,-56.000300000000003 157.989699999999999,-55.000300000000003 157.989699999999999,-54.999699999999997 157.989699999999999,-53.999699999999997 157.989748152733313,-53.998719828596698 157.989892147195889,-53.997749096779827 157.9901305966427,-53.996797153227448 157.990461204674887,-53.995873165676343 157.990880787356502,-53.994986032631743 157.991385303876996,-53.994144297669799 157.991969895466411,-53.993356067158359 157.992628932188097,-53.992628932188133 157.993356067158288,-53.991969895466369 157.994144297669806,-53.991385303876967 157.994986032631687,-53.990880787356517 157.995873165676301,-53.990461204674887 157.996797153227391,-53.990130596642672 157.997749096779813,-53.989892147195967 157.998719828596705,-53.989748152733277 157.99969999999999,-53.989699999999999 159.00030000000001,-53.989699999999999 159.001280171403295,-53.989748152733277 159.002250903220187,-53.989892147195967 159.003202846772609,-53.990130596642672 159.004126834323699,-53.990461204674887 159.005013967368313,-53.990880787356517 159.005855702330194,-53.991385303876967 159.006643932841712,-53.991969895466369 159.007371067811903,-53.992628932188133 159.008030104533589,-53.993356067158359 159.008614696123004,-53.994144297669799 159.009119212643498,-53.994986032631743 159.009538795325113,-53.995873165676343 159.0098694033573,-53.996797153227448 159.010107852804111,-53.997749096779827 159.010251847266687,-53.998719828596698 159.010300000000001,-53.999699999999997 159.010300000000001,-54.999699999999997 159.010300000000001,-55.000300000000003 159.010300000000001,-56.000300000000003 159.010251847266687,-56.001280171403302 159.010107852804111,-56.002250903220173 159.0098694033573,-56.003202846772552 159.009538795325113,-56.004126834323657 159.009119212643498,-56.005013967368257 159.008614696123004,-56.005855702330201 159.008030104533589,-56.006643932841641 159.007371067811903,-56.007371067811867 159.006643932841712,-56.008030104533631 159.005855702330194,-56.008614696123033 159.005013967368313,-56.009119212643483 159.004126834323699,-56.009538795325113 159.003202846772609,-56.009869403357328 159.002250903220187,-56.010107852804033 159.001280171403295,-56.010251847266723 159.00030000000001,-56.010300000000001 157.99969999999999,-56.010300000000001 157.998719828596705,-56.010251847266723 157.997749096779813,-56.010107852804033 157.996797153227391,-56.009869403357328 157.995873165676301,-56.009538795325113 157.994986032631687,-56.009119212643483 157.994144297669806,-56.008614696123033 157.993356067158288,-56.008030104533631 157.992628932188097,-56.007371067811867 157.991969895466411,-56.006643932841641 157.991385303876996,-56.005855702330201 157.990880787356502,-56.005013967368257 157.990461204674887,-56.004126834323657 157.9901305966427,-56.003202846772552 157.989892147195889,-56.002250903220173 157.989748152733313,-56.001280171403302 157.989699999999999,-56.000300000000003</coordinates></LinearRing></outerBoundaryIs></Polygon><Polygon><outerBoundaryIs><LinearRing><coordinates>2.9897,-55.000300000000003 2.9897,-53.999699999999997 2.989748152733278,-53.998719828596698 2.989892147195968,-53.997749096779827 2.990130596642678,-53.996797153227448 2.990461204674887,-53.995873165676343 2.990880787356516,-53.994986032631743 2.991385303876974,-53.994144297669799 2.991969895466372,-53.993356067158359 2.992628932188135,-53.992628932188133 2.993356067158363,-53.991969895466369 2.994144297669804,-53.991385303876967 2.99498603263174,-53.990880787356517 2.995873165676349,-53.990461204674887 2.996797153227455,-53.990130596642672 2.997749096779839,-53.989892147195967 2.998719828596704,-53.989748152733277 2.9997,-53.989699999999999 4.0003,-53.989699999999999 4.001280171403296,-53.989748152733277 4.002250903220162,-53.989892147195967 4.003202846772544,-53.990130596642672 4.004126834323651,-53.990461204674887 4.00501396736826,-53.990880787356517 4.005855702330196,-53.991385303876967 4.006643932841636,-53.991969895466369 4.007371067811865,-53.992628932188133 4.008030104533628,-53.993356067158359 4.008614696123026,-53.994144297669799 4.009119212643483,-53.994986032631743 4.009538795325113,-53.995873165676343 4.009869403357322,-53.996797153227448 4.010107852804032,-53.997749096779827 4.010251847266722,-53.998719828596698 4.0103,-53.999699999999997 4.0103,-55.000300000000003 4.010251847266722,-55.001280171403302 4.010107852804032,-55.002250903220173 4.009869403357322,-55.003202846772552 4.009538795325113,-55.004126834323657 4.009119212643483,-55.005013967368257 4.008614696123026,-55.005855702330201 4.008030104533628,-55.006643932841641 4.007371067811865,-55.007371067811867 4.006643932841636,-55.008030104533631 4.005855702330196,-55.008614696123033 4.00501396736826,-55.009119212643483 4.004126834323651,-55.009538795325113 4.003202846772544,-55.009869403357328 4.002250903220162,-55.010107852804033 4.001280171403296,-55.010251847266723 4.0003,-55.010300000000001 2.9997,-55.010300000000001 2.998719828596704,-55.010251847266723 2.997749096779839,-55.010107852804033 2.996797153227455,-55.009869403357328 2.995873165676349,-55.009538795325113 2.99498603263174,-55.009119212643483 2.994144297669804,-55.008614696123033 2.993356067158363,-55.008030104533631 2.992628932188135,-55.007371067811867 2.991969895466372,-55.006643932841641 2.991385303876974,-55.005855702330201 2.990880787356516,-55.005013967368257 2.990461204674887,-55.004126834323657 2.990130596642678,-55.003202846772552 2.989892147195968,-55.002250903220173 2.989748152733278,-55.001280171403302 2.9897,-55.000300000000003</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>\n</Placemark>\n</Folder>\n</Document></kml>\n'
-
-
-def test_parseSRTMv3CoverageKml() -> None:
-    with warnings.catch_warnings(record=True) as w:
-        polygons = parseSRTMv3CoverageKml(SRTM_V3_IDX_KML)
-        assert len(polygons) == 2
-        assert polygons[0][1] == (157.9897, -55.0003)
-        # Ensure no warning is raised
-        assert w == []
+from . import TEST_DATA_PATH
 
 
 def test_getFiles_no_source(
     configuration: Configuration,
 ) -> None:
     """No source, no file..."""
-    files = getFiles("1:2:3:4", None, 0, 0, [], configuration)
+    files = get_files("1:2:3:4", None, 0, 0, [], configuration)
     assert files == []
 
 
@@ -42,7 +44,7 @@ def test_getFiles_sonn3_no_poly(
 
     pool_mock.return_value.available_sources_names.return_value = ["sonn"]
 
-    files = getFiles("1:2:3:4", None, 0, 0, ["sonn3"], configuration)
+    files = get_files("1:2:3:4", None, 0, 0, ["sonn3"], configuration)
 
     pool_mock.return_value.get_source.assert_called_with("sonn")
     assert pool_mock.return_value.get_source.return_value.get_file.call_args_list == [
@@ -75,14 +77,14 @@ def test_getFiles_multi_sources(
         "hgt/SONN3/N03E002.hgt",
     ]
 
-    files = getFiles("1:2:3:4", None, 0, 0, ["sonn3", "view1"], configuration)
+    files = get_files("1:2:3:4", None, 0, 0, ["sonn3", "view1"], configuration)
 
     assert sources_pool_mock.return_value.get_file.call_args_list == [
-        call(None, "N02E001", "sonn3"),
-        call(None, "N02E001", "view1"),
-        call(None, "N03E001", "sonn3"),
-        call(None, "N02E002", "sonn3"),
-        call(None, "N03E002", "sonn3"),
+        call("N02E001", "sonn3"),
+        call("N02E001", "view1"),
+        call("N03E001", "sonn3"),
+        call("N02E002", "sonn3"),
+        call("N03E002", "sonn3"),
     ]
 
     assert files == [
@@ -91,3 +93,1058 @@ def test_getFiles_multi_sources(
         ("hgt/SONN3/N02E002.hgt", False),
         ("hgt/SONN3/N03E002.hgt", False),
     ]
+
+
+class TestMakeFileNamePrefix:
+    """Tests for makeFileNamePrefix function."""
+
+    @pytest.mark.parametrize(
+        ("lon", "lat", "expected"),
+        [
+            # Positive coordinates (North-East)
+            (0, 0, "N00E000"),
+            (1, 1, "N01E001"),
+            (10, 10, "N10E010"),
+            (45, 45, "N45E045"),
+            (180, 85, "N85E180"),
+            # Negative longitude (West)
+            (-1, 0, "N00W001"),
+            (-10, 10, "N10W010"),
+            (-45, 45, "N45W045"),
+            (-180, 0, "N00W180"),
+            # Negative latitude (South)
+            (0, -1, "S01E000"),
+            (10, -10, "S10E010"),
+            (45, -45, "S45E045"),
+            # South-West (negative both)
+            (-1, -1, "S01W001"),
+            (-45, -45, "S45W045"),
+            (-180, -85, "S85W180"),
+            # Padding tests (zeros)
+            (9, 9, "N09E009"),
+            (99, 9, "N09E099"),
+        ],
+    )
+    def test_make_file_name_prefix(self, lon: int, lat: int, expected: str) -> None:
+        """Test file name prefix generation for various coordinates."""
+        assert make_file_name_prefix(lon, lat) == expected
+
+
+class TestMakeFileNamePrefixes:
+    """Tests for makeFileNamePrefixes function."""
+
+    def test_simple_bbox_no_polygon(self) -> None:
+        """Test simple bounding box without polygon."""
+        bbox = (0, 0, 2, 2)  # 2x2 grid
+        result = make_file_name_prefixes(bbox, None, 0, 0)
+
+        assert len(result) == 4  # 2x2 = 4 tiles
+        # All should be tuples of (filename, checkPoly)
+        assert all(isinstance(item, tuple) and len(item) == 2 for item in result)
+        # All should have checkPoly=False when no polygon
+        assert all(item[1] is False for item in result)
+        # Check expected filenames
+        filenames = {item[0] for item in result}
+        assert "N00E000" in filenames
+        assert "N00E001" in filenames
+        assert "N01E000" in filenames
+        assert "N01E001" in filenames
+
+    def test_single_tile_bbox(self) -> None:
+        """Test bounding box covering a single tile."""
+        bbox = (5, 10, 6, 11)
+        result = make_file_name_prefixes(bbox, None, 0, 0)
+
+        assert len(result) == 1
+        assert result[0][0] == "N10E005"
+        assert result[0][1] is False
+
+    def test_bbox_with_negative_coordinates(self) -> None:
+        """Test bounding box with negative coordinates."""
+        bbox = (-2, -2, 1, 1)  # Covers South-West, South-East, North-West, North-East
+        result = make_file_name_prefixes(bbox, None, 0, 0)
+
+        filenames = {item[0] for item in result}
+        # Should have all four quadrants
+        assert "S02W002" in filenames  # South-West
+        assert "S02E000" in filenames  # South-East
+        assert "N00W002" in filenames  # North-West
+        assert "N00E000" in filenames  # North-East
+
+    def test_bbox_crossing_dateline(self) -> None:
+        """Test bounding box crossing the W180/E180 dateline."""
+        bbox = (178, 0, -178, 1)  # minLon > maxLon indicates dateline crossing
+        result = make_file_name_prefixes(bbox, None, 0, 0)
+
+        # Should include tiles from W178-W180 and E178-E179
+        filenames = {item[0] for item in result}
+        assert sorted(filenames) == sorted(
+            [
+                "N00E178",
+                "N00E179",
+                "N00W180",
+                "N00W179",
+            ]
+        )
+
+    def test_lowercase_option(self) -> None:
+        """Test lowercase conversion of file name prefixes."""
+        bbox = (0, 0, 1, 1)
+        result = make_file_name_prefixes(bbox, None, 0, 0, lowercase=True)
+
+        filenames = {item[0] for item in result}
+        # All should be lowercase
+        assert all(f.islower() for f in filenames)
+
+    def test_uppercase_option_default(self) -> None:
+        """Test that default is uppercase."""
+        bbox = (0, 0, 1, 1)
+        result = make_file_name_prefixes(bbox, None, 0, 0, lowercase=False)
+
+        filenames = {item[0] for item in result}
+        # All should be uppercase
+        assert all(f.isupper() for f in filenames)
+
+    def test_with_corrections(self) -> None:
+        """Test bounding box with coordinate corrections."""
+        bbox = (0, 0, 2, 2)
+        corrx, corry = 0.5, 0.5
+        result = make_file_name_prefixes(bbox, None, corrx, corry)
+
+        # Should still return results (corrections affect polygon checking, not bbox iteration)
+        assert len(result) > 0
+
+    def test_bbox_ordering(self) -> None:
+        """Test that bbox coordinates must be in correct order."""
+        # Standard ordering: minLon, minLat, maxLon, maxLat
+        bbox = (0, 0, 2, 2)
+        result = make_file_name_prefixes(bbox, None, 0, 0)
+
+        # Should have 4 tiles (2x2)
+        assert len(result) == 4
+
+    @patch("pyhgtmap.NASASRTMUtil.area_needed")
+    def test_with_polygon_no_intersection(self, mock_area_needed: MagicMock) -> None:
+        """Test with polygon that has no intersections."""
+        mock_area_needed.return_value = (False, False)
+        bbox = (0, 0, 2, 2)
+        polygon: PolygonsList = [
+            [
+                Coordinates(0.5, 0.5),
+                Coordinates(1.5, 0.5),
+                Coordinates(1.5, 1.5),
+                Coordinates(0.5, 1.5),
+            ]
+        ]
+
+        result = make_file_name_prefixes(bbox, polygon, 0, 0)
+
+        # Should have fewer results due to polygon filtering
+        assert len(result) <= 4
+
+    @patch("pyhgtmap.NASASRTMUtil.area_needed")
+    def test_with_polygon_full_intersection(self, mock_area_needed: MagicMock) -> None:
+        """Test with polygon where all areas are needed."""
+        mock_area_needed.return_value = (True, False)
+        bbox = (0, 0, 2, 2)
+        polygon: PolygonsList = [
+            [
+                Coordinates(-2, -2),
+                Coordinates(3, -2),
+                Coordinates(3, 3),
+                Coordinates(-2, 3),
+            ]
+        ]
+
+        result = make_file_name_prefixes(bbox, polygon, 0, 0)
+
+        # Should have all tiles
+        assert len(result) == 4
+
+    @patch("pyhgtmap.NASASRTMUtil.intersect_tiles")
+    @patch("pyhgtmap.NASASRTMUtil.area_needed")
+    def test_intersec_tiles_priority(
+        self,
+        mock_area_needed: MagicMock,
+        mock_intersec_tiles: MagicMock,
+    ) -> None:
+        """Test that intersecTiles results are included with checkPoly=True."""
+        mock_intersec_tiles.return_value = ["N00E000"]
+        mock_area_needed.return_value = (True, False)
+        bbox = (0, 0, 2, 2)
+        polygon: PolygonsList = [
+            [
+                Coordinates(0.5, 0.5),
+                Coordinates(1.5, 0.5),
+                Coordinates(1.5, 1.5),
+                Coordinates(0.5, 1.5),
+            ]
+        ]
+
+        result = make_file_name_prefixes(bbox, polygon, 0, 0)
+
+        # Find N00E000 in results
+        n00e000_results = [item for item in result if item[0] == "N00E000"]
+        assert len(n00e000_results) > 0
+        # Should have checkPoly=True from intersecTiles
+        assert any(item[1] is True for item in n00e000_results)
+
+    def test_large_bbox(self) -> None:
+        """Test larger bounding box."""
+        bbox = (0, 0, 10, 10)  # 10x10 grid = 100 tiles
+        result = make_file_name_prefixes(bbox, None, 0, 0)
+
+        assert len(result) == 100
+        # Check that first and last tiles are present
+        filenames = {item[0] for item in result}
+        assert "N00E000" in filenames
+        assert "N09E009" in filenames
+
+    def test_return_type_structure(self) -> None:
+        """Test that return value has correct structure."""
+        bbox = (0, 0, 1, 1)
+        result = make_file_name_prefixes(bbox, None, 0, 0)
+
+        # Should be a list
+        assert isinstance(result, list)
+        # Each element should be a tuple
+        for item in result:
+            assert isinstance(item, tuple)
+            assert len(item) == 2
+            # First element is filename string
+            assert isinstance(item[0], str)
+            # Second element is boolean
+            assert isinstance(item[1], bool)
+
+    def test_empty_bbox(self) -> None:
+        """Test bounding box with zero area."""
+        bbox = (0, 0, 0, 0)  # Empty bbox
+        result = make_file_name_prefixes(bbox, None, 0, 0)
+
+        # Should return empty list
+        assert len(result) == 0
+
+    def test_single_row_bbox(self) -> None:
+        """Test bounding box that is a single row."""
+        bbox = (0, 5, 3, 6)  # Single latitude row
+        result = make_file_name_prefixes(bbox, None, 0, 0)
+
+        # Should have 3 tiles (3 longitudes, 1 latitude)
+        assert len(result) == 3
+        # All should have same latitude
+        filenames = {item[0] for item in result}
+        assert all("N05" in f for f in filenames)
+
+    def test_single_column_bbox(self) -> None:
+        """Test bounding box that is a single column."""
+        bbox = (10, 0, 11, 4)  # Single longitude column
+        result = make_file_name_prefixes(bbox, None, 0, 0)
+
+        # Should have 4 tiles (1 longitude, 4 latitudes)
+        assert len(result) == 4
+        # All should have same longitude
+        filenames = {item[0] for item in result}
+        assert all("E010" in f for f in filenames)
+
+
+class TestAreaNeeded:
+    """Tests for areaNeeded function."""
+
+    def test_area_needed_no_polygon(self) -> None:
+        """Test that area is needed when no polygon is provided."""
+        bbox = (0, 0, 10, 10)
+        needed, check_poly = area_needed(
+            lat=5, lon=5, bbox=bbox, polygons=None, corrx=0, corry=0
+        )
+
+        assert needed is True
+        assert check_poly is False
+
+    def test_area_needed_no_polygon_with_corrections(self) -> None:
+        """Test that area is needed with no polygon even with corrections."""
+        bbox = (0, 0, 10, 10)
+        needed, check_poly = area_needed(
+            lat=5, lon=5, bbox=bbox, polygons=None, corrx=0.5, corry=0.5
+        )
+
+        assert needed is True
+        assert check_poly is False
+
+    @patch("pyhgtmap.NASASRTMUtil.print")
+    def test_area_completely_inside_polygon_match_bbox(
+        self, mock_print: MagicMock
+    ) -> None:
+        """Test when polygon completely fills the bounding box."""
+        # Tile at (0, 0), bbox exactly matches the tile
+        bbox = (0, 0, 1, 1)
+        polygon: PolygonsList = [
+            [Coordinates(0, 0), Coordinates(1, 0), Coordinates(1, 1), Coordinates(0, 1)]
+        ]
+
+        needed, check_poly = area_needed(
+            lat=0, lon=0, bbox=bbox, polygons=polygon, corrx=0, corry=0
+        )
+
+        assert needed is True
+        assert check_poly is True
+        # Print called at least once with checking message
+        assert mock_print.call_count >= 1
+
+    def test_area_completely_inside_polygon_all_corners(self) -> None:
+        """Test when all four corners of the tile are inside the polygon."""
+        # Tile at (5, 5), polygon covers it completely
+        bbox = (0, 0, 20, 20)
+        polygon: PolygonsList = [
+            [Coordinates(4, 4), Coordinates(7, 4), Coordinates(7, 7), Coordinates(4, 7)]
+        ]
+
+        needed, check_poly = area_needed(
+            lat=5, lon=5, bbox=bbox, polygons=polygon, corrx=0, corry=0
+        )
+
+        # All corners of tile are inside polygon -> (needed=True, check_poly=False)
+        assert needed is True
+        assert check_poly is False
+
+    @patch("pyhgtmap.NASASRTMUtil.print")
+    def test_area_completely_outside_polygon(self, mock_print: MagicMock) -> None:
+        """Test when tile is completely outside the polygon."""
+        # Tile at (10, 10), polygon is far away at (0, 0)
+        bbox = (0, 0, 20, 20)
+        polygon: PolygonsList = [
+            [Coordinates(1, 1), Coordinates(2, 1), Coordinates(2, 2), Coordinates(1, 2)]
+        ]
+
+        needed, check_poly = area_needed(
+            lat=10, lon=10, bbox=bbox, polygons=polygon, corrx=0, corry=0
+        )
+
+        assert needed is False
+        assert check_poly is False
+
+    @patch("pyhgtmap.NASASRTMUtil.print")
+    def test_area_partially_intersecting_polygon(self, mock_print: MagicMock) -> None:
+        """Test when tile partially intersects polygon (boundary case)."""
+        # Tile at (0, 0) with polygon crossing the boundary
+        bbox = (0, 0, 10, 10)
+        polygon: PolygonsList = [
+            [
+                Coordinates(0.5, 0.5),
+                Coordinates(1.5, 0.5),
+                Coordinates(1.5, 1.5),
+                Coordinates(0.5, 1.5),
+            ]
+        ]
+
+        needed, check_poly = area_needed(
+            lat=0, lon=0, bbox=bbox, polygons=polygon, corrx=0, corry=0
+        )
+
+        # Partial intersection returns True (with maybe status)
+        assert needed is True
+        assert check_poly is True
+
+    @patch("pyhgtmap.NASASRTMUtil.print")
+    def test_area_with_positive_corrections(self, mock_print: MagicMock) -> None:
+        """Test area calculation with positive coordinate corrections."""
+        # Tile at (5, 5), but with corrections
+        bbox = (0, 0, 10, 10)
+        polygon: PolygonsList = [
+            [
+                Coordinates(5.5, 5.5),
+                Coordinates(5.7, 5.5),
+                Coordinates(5.7, 5.7),
+                Coordinates(5.5, 5.7),
+            ]
+        ]
+
+        needed, _ = area_needed(
+            lat=5, lon=5, bbox=bbox, polygons=polygon, corrx=0.3, corry=0.3
+        )
+
+        # The corrected tile becomes (5.3, 5.3) to (6.3, 6.3) which intersects polygon
+        # Result depends on intersection logic
+        assert isinstance(needed, bool)
+
+    @patch("pyhgtmap.NASASRTMUtil.print")
+    def test_area_with_negative_corrections(self, mock_print: MagicMock) -> None:
+        """Test area calculation with negative coordinate corrections."""
+        bbox = (0, 0, 10, 10)
+        polygon: PolygonsList = [
+            [
+                Coordinates(4.5, 4.5),
+                Coordinates(4.7, 4.5),
+                Coordinates(4.7, 4.7),
+                Coordinates(4.5, 4.7),
+            ]
+        ]
+
+        needed, _ = area_needed(
+            lat=5, lon=5, bbox=bbox, polygons=polygon, corrx=-0.3, corry=-0.3
+        )
+
+        # The corrected tile becomes (4.7, 4.7) to (5.7, 5.7)
+        assert isinstance(needed, bool)
+
+    @patch("pyhgtmap.NASASRTMUtil.print")
+    def test_area_with_multiple_polygons(self, mock_print: MagicMock) -> None:
+        """Test with multiple polygon areas."""
+        bbox = (0, 0, 20, 20)
+        # Multiple polygon regions
+        polygon: PolygonsList = [
+            [
+                Coordinates(1, 1),
+                Coordinates(2, 1),
+                Coordinates(2, 2),
+                Coordinates(1, 2),
+            ],
+            [
+                Coordinates(18, 18),
+                Coordinates(19, 18),
+                Coordinates(19, 19),
+                Coordinates(18, 19),
+            ],
+        ]
+
+        # Test tile inside second polygon
+        needed, _ = area_needed(
+            lat=18, lon=18, bbox=bbox, polygons=polygon, corrx=0, corry=0
+        )
+
+        assert needed is True
+
+    @patch("pyhgtmap.NASASRTMUtil.print")
+    def test_area_with_large_polygon(self, mock_print: MagicMock) -> None:
+        """Test with a large polygon covering multiple tiles."""
+        bbox = (0, 0, 20, 20)
+        # Large polygon covering tiles (5, 5) to (15, 15)
+        polygon: PolygonsList = [
+            [
+                Coordinates(4, 4),
+                Coordinates(16, 4),
+                Coordinates(16, 16),
+                Coordinates(4, 16),
+            ]
+        ]
+
+        needed, check_poly = area_needed(
+            lat=10, lon=10, bbox=bbox, polygons=polygon, corrx=0, corry=0
+        )
+
+        assert needed is True
+        assert check_poly is False
+
+    @patch("pyhgtmap.NASASRTMUtil.print")
+    def test_area_at_polygon_edge(self, mock_print: MagicMock) -> None:
+        """Test when tile touches the edge of a polygon."""
+        bbox = (0, 0, 20, 20)
+        polygon: PolygonsList = [
+            [Coordinates(5, 5), Coordinates(6, 5), Coordinates(6, 6), Coordinates(5, 6)]
+        ]
+
+        # Tile starting at exactly (5, 5) - boundary touching
+        needed, _ = area_needed(
+            lat=5, lon=5, bbox=bbox, polygons=polygon, corrx=0, corry=0
+        )
+
+        # Boundary case - at least it should be needed
+        assert needed is True
+
+    @patch("pyhgtmap.NASASRTMUtil.print")
+    def test_area_negative_coordinates(self, mock_print: MagicMock) -> None:
+        """Test with negative latitude and longitude."""
+        bbox = (-10, -10, 0, 0)
+        polygon: PolygonsList = [
+            [
+                Coordinates(-5, -5),
+                Coordinates(-4, -5),
+                Coordinates(-4, -4),
+                Coordinates(-5, -4),
+            ]
+        ]
+
+        needed, _ = area_needed(
+            lat=-5, lon=-5, bbox=bbox, polygons=polygon, corrx=0, corry=0
+        )
+
+        assert needed is True
+
+    @patch("pyhgtmap.NASASRTMUtil.print")
+    def test_area_mixed_sign_coordinates(self, mock_print: MagicMock) -> None:
+        """Test with mixed positive and negative coordinates."""
+        bbox = (-5, -5, 5, 5)
+        polygon: PolygonsList = [
+            [
+                Coordinates(-1, -1),
+                Coordinates(1, -1),
+                Coordinates(1, 1),
+                Coordinates(-1, 1),
+            ]
+        ]
+
+        needed, _ = area_needed(
+            lat=0, lon=0, bbox=bbox, polygons=polygon, corrx=0, corry=0
+        )
+
+        assert needed is True
+
+    @patch("pyhgtmap.NASASRTMUtil.print")
+    def test_area_return_type(self, mock_print: MagicMock) -> None:
+        """Test that areaNeeded always returns a tuple of two booleans."""
+        bbox = (0, 0, 10, 10)
+        polygon: PolygonsList = [
+            [Coordinates(5, 5), Coordinates(6, 5), Coordinates(6, 6), Coordinates(5, 6)]
+        ]
+
+        result = area_needed(
+            lat=5, lon=5, bbox=bbox, polygons=polygon, corrx=0, corry=0
+        )
+
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+        assert isinstance(result[0], (bool, np.bool_))
+        assert isinstance(result[1], (bool, np.bool_))
+
+
+class TestCalcBbox:
+    """Tests for calcBbox function."""
+
+    def test_calc_bbox_positive_integer_coordinates(self) -> None:
+        """Test with positive integer coordinates."""
+        area = "0:0:10:10"
+        result = calc_bbox(area)
+
+        assert result == (0, 0, 10, 10)
+
+    def test_calc_bbox_positive_decimal_coordinates(self) -> None:
+        """Test with positive decimal coordinates."""
+        area = "0.5:0.5:10.5:10.5"
+        result = calc_bbox(area)
+
+        # Decimals round up for max values, min stays same
+        assert result == (0, 0, 11, 11)
+
+    def test_calc_bbox_negative_integer_coordinates(self) -> None:
+        """Test with negative integer coordinates."""
+        area = "-10:-10:0:0"
+        result = calc_bbox(area)
+
+        assert result == (-10, -10, 0, 0)
+
+    def test_calc_bbox_negative_decimal_coordinates(self) -> None:
+        """Test with negative decimal coordinates."""
+        area = "-10.5:-10.5:-0.5:-0.5"
+        result = calc_bbox(area)
+
+        # Negative decimals round down for min values
+        assert result == (-11, -11, 0, 0)
+
+    def test_calc_bbox_mixed_sign_coordinates(self) -> None:
+        """Test with mixed positive and negative coordinates."""
+        area = "-5:0:5:10"
+        result = calc_bbox(area)
+
+        assert result == (-5, 0, 5, 10)
+
+    def test_calc_bbox_with_positive_corrections(self) -> None:
+        """Test bounding box calculation with positive corrections."""
+        area = "0:0:10:10"
+        result = calc_bbox(area, corrx=0.5, corry=0.5)
+
+        # Corrections are subtracted from parsed values
+        # minLon: 0 - 0.5 = -0.5 (non-integer, negative) -> -1
+        # minLat: 0 - 0.5 = -0.5 (non-integer, negative) -> -1
+        # maxLon: 10 - 0.5 = 9.5 (non-integer) -> 10
+        # maxLat: 10 - 0.5 = 9.5 (non-integer) -> 10
+        assert result == (-1, -1, 10, 10)
+
+    def test_calc_bbox_with_negative_corrections(self) -> None:
+        """Test bounding box calculation with negative corrections."""
+        area = "5:5:15:15"
+        result = calc_bbox(area, corrx=-1.0, corry=-1.0)
+
+        # Negative corrections (subtracted) expand the bbox
+        # minLon: 5 - (-1.0) = 6.0 (integer) -> 6
+        # minLat: 5 - (-1.0) = 6.0 (integer) -> 6
+        # maxLon: 15 - (-1.0) = 16.0 (integer) -> 16
+        # maxLat: 15 - (-1.0) = 16.0 (integer) -> 16
+        assert result == (6, 6, 16, 16)
+
+    def test_calc_bbox_zero_area(self) -> None:
+        """Test with zero-area bounding box."""
+        area = "5:5:5:5"
+        result = calc_bbox(area)
+
+        assert result == (5, 5, 5, 5)
+
+    def test_calc_bbox_small_area(self) -> None:
+        """Test with very small area (less than 1 degree)."""
+        area = "5.1:5.1:5.9:5.9"
+        result = calc_bbox(area)
+
+        # minLon: 5.1 (non-int) -> 5
+        # minLat: 5.1 (non-int) -> 5
+        # maxLon: 5.9 (non-int) -> 6
+        # maxLat: 5.9 (non-int) -> 6
+        assert result == (5, 5, 6, 6)
+
+    def test_calc_bbox_large_area(self) -> None:
+        """Test with large area spanning multiple tiles."""
+        area = "-180:-90:180:90"
+        result = calc_bbox(area)
+
+        assert result == (-180, -90, 180, 90)
+
+    def test_calc_bbox_negative_min_positive_max(self) -> None:
+        """Test with negative min and positive max."""
+        area = "-5:-5:5:5"
+        result = calc_bbox(area)
+
+        assert result == (-5, -5, 5, 5)
+
+    def test_calc_bbox_negative_min_positive_decimal_max(self) -> None:
+        """Test with negative min (integer) and positive decimal max."""
+        area = "-5:-5:5.5:5.5"
+        result = calc_bbox(area)
+
+        # minLon: -5 (integer) -> -5
+        # minLat: -5 (integer) -> -5
+        # maxLon: 5.5 (non-int) -> 6
+        # maxLat: 5.5 (non-int) -> 6
+        assert result == (-5, -5, 6, 6)
+
+    def test_calc_bbox_negative_decimal_min_positive_max(self) -> None:
+        """Test with negative decimal min and positive integer max."""
+        area = "-5.5:-5.5:5:5"
+        result = calc_bbox(area)
+
+        # minLon: -5.5 (non-int, negative) -> -6
+        # minLat: -5.5 (non-int, negative) -> -6
+        # maxLon: 5 (integer) -> 5
+        # maxLat: 5 (integer) -> 5
+        assert result == (-6, -6, 5, 5)
+
+    def test_calc_bbox_asymmetric_area(self) -> None:
+        """Test with asymmetric bounding box."""
+        area = "10:20:30:40"
+        result = calc_bbox(area)
+
+        assert result == (10, 20, 30, 40)
+
+    @pytest.mark.parametrize(
+        ("area", "corrx", "corry", "expected"),
+        [
+            ("0:0:1:1", 0, 0, (0, 0, 1, 1)),
+            ("0:0:1:1", 0.5, 0.5, (-1, -1, 1, 1)),
+            ("10:10:20:20", 0, 0, (10, 10, 20, 20)),
+            ("10:10:20:20", 1, 1, (9, 9, 19, 19)),
+            ("-10:-10:0:0", 0, 0, (-10, -10, 0, 0)),
+            ("-10:-10:0:0", 0.5, 0.5, (-11, -11, 0, 0)),
+        ],
+    )
+    def test_calc_bbox_parametrized(
+        self, area: str, corrx: float, corry: float, expected: tuple[int, int, int, int]
+    ) -> None:
+        """Parametrized tests for calcBbox with various inputs."""
+        result = calc_bbox(area, corrx, corry)
+        assert result == expected
+
+    def test_calc_bbox_equator_crossing(self) -> None:
+        """Test bounding box that crosses the equator."""
+        area = "-2:2:2:8"
+        result = calc_bbox(area)
+
+        assert result == (-2, 2, 2, 8)
+
+    def test_calc_bbox_return_type(self) -> None:
+        """Test that calcBbox returns tuple of 4 integers."""
+        area = "5.5:5.5:15.5:15.5"
+        result = calc_bbox(area)
+
+        assert isinstance(result, tuple)
+        assert len(result) == 4
+        assert all(isinstance(val, int) for val in result)
+
+    def test_calc_bbox_min_max_ordering(self) -> None:
+        """Test that result maintains minLon, minLat, maxLon, maxLat order."""
+        area = "10:5:20:15"
+        lon_min, lat_min, lon_max, lat_max = calc_bbox(area)
+
+        # Verify ordering
+        assert lon_min <= lon_max
+        assert lat_min <= lat_max
+
+
+class TestIntersectTiles:
+    """Test suite for intersect_tiles function."""
+
+    def test_intersect_tiles_none_polygon(self) -> None:
+        """Test with None polygons - should return empty list."""
+        result = intersect_tiles(None, 0, 0)
+        assert result == []
+
+    def test_intersect_tiles_empty_polygon_list(self) -> None:
+        """Test with empty polygon list - should return empty list."""
+        result = intersect_tiles([], 0, 0)
+        assert result == []
+
+    def test_intersect_tiles_single_point_polygon(self) -> None:
+        """Test with single point polygon - should return empty since no line segments."""
+        polygon: PolygonsList = [
+            [
+                Coordinates(0, 0),
+            ]
+        ]
+        result = intersect_tiles(polygon, 0, 0)
+        assert isinstance(result, list)
+        # Single point with no line segments returns empty
+        assert result == []
+
+    def test_intersect_tiles_small_square_no_correction(self) -> None:
+        """Test with small square polygon and no corrections."""
+        polygon: PolygonsList = [
+            [
+                Coordinates(0, 0),
+                Coordinates(0.5, 0),
+                Coordinates(0.5, 0.5),
+                Coordinates(0, 0.5),
+            ]
+        ]
+        result = intersect_tiles(polygon, 0, 0)
+        assert isinstance(result, list)
+        assert result == ["N00E000"]
+
+    def test_intersect_tiles_horizontal_line(self) -> None:
+        """Test with horizontal line polygon."""
+        polygon: PolygonsList = [
+            [
+                Coordinates(0, 5),
+                Coordinates(3, 5),
+            ]
+        ]
+        result = intersect_tiles(polygon, 0, 0)
+        # Horizontal line should span multiple tiles
+        assert sorted(result) == ["N05E000", "N05E001", "N05E002", "N05E003"]
+
+    def test_intersect_tiles_vertical_line(self) -> None:
+        """Test with vertical line polygon."""
+        polygon: PolygonsList = [
+            [
+                Coordinates(5, 0),
+                Coordinates(5, 3),
+            ]
+        ]
+        result = intersect_tiles(polygon, 0, 0)
+        # Vertical line should span multiple tiles
+        assert sorted(result) == ["N00E005", "N01E005", "N02E005", "N03E005"]
+
+    def test_intersect_tiles_diagonal_line(self) -> None:
+        """Test with diagonal line polygon."""
+        polygon: PolygonsList = [
+            [
+                Coordinates(0, 0),
+                Coordinates(2, 2),
+            ]
+        ]
+        result = intersect_tiles(polygon, 0, 0)
+        assert isinstance(result, list)
+        # Diagonal line should intersect multiple tiles
+        assert sorted(result) == [
+            "N00E000",
+            "N00E001",
+            "N00W001",
+            "N01E000",
+            "N01E001",
+            "N02E002",
+            "S01E000",
+        ]
+
+    def test_intersect_tiles_with_positive_correction(self) -> None:
+        """Test with positive coordinate corrections."""
+        polygon: PolygonsList = [
+            [
+                Coordinates(1, 1),
+                Coordinates(2, 1),
+                Coordinates(2, 2),
+                Coordinates(1, 2),
+            ]
+        ]
+        result_no_corr = intersect_tiles(polygon, 0, 0)
+        result_with_corr = intersect_tiles(polygon, 0.5, 0.5)
+
+        # Results should differ due to correction
+        assert sorted(result_no_corr) == ["N01E001", "N01E002", "N02E001", "N02E002"]
+        assert sorted(result_with_corr) == ["N00E001", "N01E000", "N01E001"]
+
+    def test_intersect_tiles_with_negative_correction(self) -> None:
+        """Test with negative coordinate corrections."""
+        polygon: PolygonsList = [
+            [
+                Coordinates(1, 1),
+                Coordinates(2, 1),
+                Coordinates(2, 2),
+                Coordinates(1, 2),
+            ]
+        ]
+        result_with_corr = intersect_tiles(polygon, -0.5, -0.5)
+
+        assert sorted(result_with_corr) == ["N01E002", "N02E001", "N02E002"]
+
+    def test_intersect_tiles_negative_coordinates(self) -> None:
+        """Test with negative coordinates (Western/Southern hemisphere)."""
+        polygon: PolygonsList = [
+            [
+                Coordinates(-5, -5),
+                Coordinates(-4, -5),
+                Coordinates(-4, -4),
+                Coordinates(-5, -4),
+            ]
+        ]
+        result = intersect_tiles(polygon, 0, 0)
+        assert sorted(result) == ["S04W004", "S04W005", "S05W004", "S05W005"]
+
+    def test_intersect_tiles_mixed_hemisphere(self) -> None:
+        """Test with polygon spanning multiple hemispheres."""
+        polygon: PolygonsList = [
+            [
+                Coordinates(-1, -1),
+                Coordinates(1, -1),
+                Coordinates(1, 1),
+                Coordinates(-1, 1),
+            ]
+        ]
+        result = intersect_tiles(polygon, 0, 0)
+        # Spans all four quadrants
+        assert sorted(result) == [
+            "N00E001",
+            "N01E000",
+            "N01E001",
+            "N01W001",
+            "S01E000",
+            "S01E001",
+            "S01W001",
+        ]
+
+    def test_intersect_tiles_large_polygon(self) -> None:
+        """Test with large polygon spanning multiple tiles."""
+        polygon: PolygonsList = [
+            [
+                Coordinates(0, 0),
+                Coordinates(5, 0),
+                Coordinates(5, 5),
+                Coordinates(0, 5),
+            ]
+        ]
+        result = intersect_tiles(polygon, 0, 0)
+        # Large polygon should cover many tiles
+        assert sorted(result) == [
+            "N00E000",
+            "N00E001",
+            "N00E002",
+            "N00E003",
+            "N00E004",
+            "N00E005",
+            "N01E005",
+            "N02E005",
+            "N03E005",
+            "N04E005",
+            "N05E000",
+            "N05E001",
+            "N05E002",
+            "N05E003",
+            "N05E004",
+            "N05E005",
+        ]
+
+    def test_intersect_tiles_multiple_polygons(self) -> None:
+        """Test with multiple polygons in list."""
+        polygons: PolygonsList = [
+            [
+                Coordinates(0, 0),
+                Coordinates(1, 0),
+                Coordinates(1, 1),
+                Coordinates(0, 1),
+            ],
+            [
+                Coordinates(3, 3),
+                Coordinates(4, 3),
+                Coordinates(4, 4),
+                Coordinates(3, 4),
+            ],
+        ]
+        result = intersect_tiles(polygons, 0, 0)
+        # Should include tiles from both polygons
+        assert sorted(result) == [
+            "N00E000",
+            "N00E001",
+            "N01E000",
+            "N01E001",
+            "N03E003",
+            "N03E004",
+            "N04E003",
+            "N04E004",
+        ]
+
+    def test_intersect_tiles_no_duplicates(self) -> None:
+        """Test that result contains no duplicate tile prefixes."""
+        polygon: PolygonsList = [
+            [
+                Coordinates(0, 0),
+                Coordinates(2, 0),
+                Coordinates(2, 2),
+                Coordinates(0, 2),
+            ]
+        ]
+        result = intersect_tiles(polygon, 0, 0)
+        # Check no duplicates and verify results
+        assert sorted(result) == [
+            "N00E000",
+            "N00E001",
+            "N00E002",
+            "N01E002",
+            "N02E000",
+            "N02E001",
+            "N02E002",
+        ]
+        assert len(result) == len(set(result))
+
+    def test_intersect_tiles_decimal_coordinates(self) -> None:
+        """Test with decimal coordinates across multiple tiles."""
+        polygon: PolygonsList = [
+            [
+                Coordinates(0.3, 0.3),
+                Coordinates(1.7, 0.3),
+                Coordinates(1.7, 1.7),
+                Coordinates(0.3, 1.7),
+            ]
+        ]
+        result = intersect_tiles(polygon, 0, 0)
+        # Should span multiple tiles
+        assert sorted(result) == ["N00E001", "N01E000", "N01E001"]
+
+    def test_intersect_tiles_return_type(self) -> None:
+        """Test that return type is list of strings."""
+        polygon: PolygonsList = [
+            [
+                Coordinates(1, 1),
+                Coordinates(2, 1),
+                Coordinates(2, 2),
+                Coordinates(1, 2),
+            ]
+        ]
+        result = intersect_tiles(polygon, 0, 0)
+        # Verify return type and values
+        assert sorted(result) == ["N01E001", "N01E002", "N02E001", "N02E002"]
+
+    def test_intersect_tiles_asymmetric_polygon(self) -> None:
+        """Test with asymmetric polygon shape."""
+        polygon: PolygonsList = [
+            [
+                Coordinates(0, 0),
+                Coordinates(3, 1),
+                Coordinates(2, 3),
+                Coordinates(0.5, 2.5),
+            ]
+        ]
+        result = intersect_tiles(polygon, 0, 0)
+        # Verify explicit results for asymmetric polygon
+        assert sorted(result) == [
+            "N00E000",
+            "N00E001",
+            "N00E002",
+            "N00E003",
+            "N00W001",
+            "N01E002",
+            "N01E003",
+            "N02E000",
+            "N02E001",
+            "N02E002",
+            "N03E001",
+            "N03E002",
+            "S01E000",
+        ]
+
+    def test_intersect_tiles_with_both_corrections(self) -> None:
+        """Test with simultaneous positive x and y corrections."""
+        polygon: PolygonsList = [
+            [
+                Coordinates(1, 1),
+                Coordinates(2, 1),
+                Coordinates(2, 2),
+                Coordinates(1, 2),
+            ]
+        ]
+        result = intersect_tiles(polygon, 0.2, 0.3)
+        # Verify explicit results with both corrections applied
+        assert sorted(result) == ["N00E001", "N01E000", "N01E001"]
+
+    def test_intersect_tiles_france_poly(self) -> None:
+        bbox_str, france_polygons = parse_polygons_file(
+            os.path.join(TEST_DATA_PATH, "france.poly")
+        )
+        result = intersect_tiles(france_polygons, 0, 0)
+        # Expecting specific tiles covering France
+        assert bbox_str == "-6.9372070:41.2386600:9.9000000:51.4288000"
+        assert sorted(result) == [
+            "N41E005",
+            "N41E006",
+            "N41E007",
+            "N41E008",
+            "N41E009",
+            "N42E000",
+            "N42E001",
+            "N42E002",
+            "N42E003",
+            "N42E004",
+            "N42E005",
+            "N42E009",
+            "N42W001",
+            "N42W002",
+            "N43E007",
+            "N43E008",
+            "N43E009",
+            "N43W002",
+            "N43W003",
+            "N44E006",
+            "N44E007",
+            "N44W003",
+            "N44W004",
+            "N45E006",
+            "N45E007",
+            "N45W004",
+            "N45W005",
+            "N46E005",
+            "N46E006",
+            "N46E007",
+            "N46W005",
+            "N46W006",
+            "N47E006",
+            "N47E007",
+            "N47W006",
+            "N47W007",
+            "N48E007",
+            "N48E008",
+            "N48W002",
+            "N48W003",
+            "N48W005",
+            "N48W006",
+            "N48W007",
+            "N49E004",
+            "N49E005",
+            "N49E006",
+            "N49E007",
+            "N49E008",
+            "N49W002",
+            "N49W003",
+            "N49W004",
+            "N49W005",
+            "N50E000",
+            "N50E001",
+            "N50E002",
+            "N50E003",
+            "N50E004",
+            "N50W001",
+            "N50W002",
+            "N51E001",
+            "N51E002",
+        ]

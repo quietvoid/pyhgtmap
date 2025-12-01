@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, cast
 
 from configargparse import ArgumentParser
 
-from pyhgtmap import NASASRTMUtil, __version__
+from pyhgtmap import __version__
 from pyhgtmap.configuration import CONFIG_FILENAME, Configuration, NestedConfig
 from pyhgtmap.hgt.file import parse_polygons_file
 from pyhgtmap.sources.pool import Pool
@@ -14,12 +14,8 @@ from pyhgtmap.sources.pool import Pool
 if TYPE_CHECKING:
     from pyhgtmap.sources import Source
 
-# TODO: clean when all sources are implemented as plugins
-ALL_SUPPORTED_SOURCES = [
-    "srtm1",
-    "srtm3",
-    *Pool.available_sources_options(),
-]
+# Built from available sources plugins
+ALL_SUPPORTED_SOURCES = Pool.available_sources_options()
 
 
 def build_common_parser() -> ArgumentParser:
@@ -290,62 +286,6 @@ def build_common_parser() -> ArgumentParser:
         default=False,
         dest="o5m",
     )
-
-    parser.add_argument(
-        "--srtm",
-        help="use SRTM resolution of SRTM-RESOLUTION"
-        "\narc seconds.  Possible values are 1 and 3, the default value is 3. "
-        "\nFor different SRTM data versions and map coverage, see the --srtm-version"
-        "\noption.",
-        metavar="SRTM-RESOLUTION",
-        dest="srtmResolution",
-        action="store",
-        type=int,
-        default=3,
-    )
-    parser.add_argument(
-        "--srtm-version",
-        help="use this VERSION of SRTM data."
-        "\nSupported SRTM versions are 2.1 and 3.  Version 2.1 has voids which"
-        "\nwere filled in version 3 using ASTER GDEM and other data.  In version"
-        "\n2.1, only the US territory is included in the 1 arc second dataset.  In"
-        "\nversion 3, nearly the whole world is covered.  The default for this"
-        "\noption is 3.  If you want the old version, say --srtm-version=2.1 here",
-        dest="srtmVersion",
-        action="store",
-        metavar="VERSION",
-        default=3.0,
-        type=float,
-    )
-    parser.add_argument(
-        "--earthexplorer-user",
-        help="the username to use for"
-        "\nearthexplorer login.  This is needed if you want to use NASA SRTM sources"
-        "\nin version 3.0.  If you do not yet have an earthexplorer login, visit"
-        "\nhttps://ers.cr.usgs.gov/register/ and create one.  Once specified,"
-        "\npyhgtmap will store the earthexplorer login credentials unencrypted in a"
-        "\nfile called '.pyhgtmaprc' in your home directory.  I. e., you only"
-        "\nhave to specify this option (and the --earthexplorer-password option) once. "
-        "\nIn addition, the password specified on the command line may be read"
-        "\nby every user on your system.  So, don't choose a password which you"
-        "\ndon't want to be disclosed to others.  This option should be specified"
-        "\nin combination with the --earthexplorer-password option.",
-        dest="earthexplorerUser",
-        action="store",
-        default=None,
-        metavar="EARTHEXPLORER_USERNAME",
-    )
-    parser.add_argument(
-        "--earthexplorer-password",
-        help="the password to use for"
-        "\nearthexplorer login.  This option should be specified in combination with"
-        "\nthe --earthexplorer-user option.  For further explanation, see the help"
-        "\ngiven for the --earthexplorer-user option.",
-        dest="earthexplorerPassword",
-        action="store",
-        default=None,
-        metavar="EARTHEXPLORER_PASSWORD",
-    )
     parser.add_argument(
         "--viewfinder-mask",
         help="if specified, NASA SRTM data"
@@ -361,12 +301,11 @@ def build_common_parser() -> ArgumentParser:
         "--source",
         "--data-source",
         help="specify a list of"
-        "\nsources to use as comma-separated string.  Available sources are"
-        f"\n{', '.join(s for s in ALL_SUPPORTED_SOURCES)}.  If specified,"
+        "\nsources to use as comma-separated string.  Available sources are:\n"
+        f"\n{', '.join(s for s in ALL_SUPPORTED_SOURCES)}.\nIf specified,"
         "\nthe data source will be selected using this option as preference list."
         "\nSpecifying --source=view3,srtm3 for example will prefer viewfinder 3"
-        "\narc second data to NASA SRTM 3 arc second data.  Also see the"
-        "\n--srtm-version option for different versions of SRTM data.",
+        "\narc second data to NASA SRTM 3 arc second data.",
         metavar="DATA-SOURCE",
         type=lambda x: x.lower().split(","),
         default=None,
@@ -404,17 +343,8 @@ def build_common_parser() -> ArgumentParser:
         "\nspecify another cache directory with this option.",
         dest="hgtdir",
         action="store",
-        default=None,
+        default="hgt",
         metavar="DIRECTORY",
-    )
-    parser.add_argument(
-        "--rewrite-indices",
-        help="rewrite the index files and"
-        "\nexit.  Try this if pyhgtmap encounters problems when trying to download"
-        "\ndata files.",
-        dest="rewriteIndices",
-        action="store_true",
-        default=False,
     )
     parser.add_argument(
         "--void-range-max",
@@ -470,28 +400,6 @@ def parse_command_line(sys_args: list[str]) -> tuple[Configuration, list[str]]:
 
     opts: Configuration = parser.parse_args(sys_args, namespace=root_configuration)
 
-    if opts.hgtdir:  # Set custom ./hgt/ directory
-        NASASRTMUtil.NASASRTMUtilConfig.CustomHgtSaveDir(opts.hgtdir)
-    if opts.rewriteIndices:
-        NASASRTMUtil.rewriteIndices()
-        sys.exit(0)
-
-    for supportedVersion in [2.1, 3]:
-        if opts.srtmVersion == supportedVersion:
-            break
-    else:
-        # unsupported SRTM data version
-        sys.stderr.write(
-            f"Unsupported SRTM data version '{opts.srtmVersion:.1f}'.  See the"
-            " --srtm-version option for details.\n\n",
-        )
-        parser.print_help()
-        sys.exit(1)
-    if opts.srtmResolution not in [1, 3]:
-        sys.stderr.write(
-            "The --srtm option can only take '1' or '3' as values.  Defaulting to 3.\n",
-        )
-        opts.srtmResolution = 3
     if opts.viewfinder not in [0, 1, 3]:
         sys.stderr.write(
             "The --viewfinder-mask option can only take '1' or '3' as values."
@@ -503,38 +411,15 @@ def parse_command_line(sys_args: list[str]) -> tuple[Configuration, list[str]]:
             if s[:5] not in ALL_SUPPORTED_SOURCES:
                 print(f"Unknown data source: {s:s}")
                 sys.exit(1)
-            elif s in ["srtm1", "srtm3"]:
-                while s in opts.dataSource:
-                    opts.dataSource[opts.dataSource.index(s)] = (
-                        f"{s:s}v{opts.srtmVersion:.1f}"
-                    )
     elif len(opts.filenames) == 0:
         # No explicit source nor input provided, try to download using default
         opts.dataSource = []
         if opts.viewfinder != 0:
             opts.dataSource.append(f"view{opts.viewfinder:d}")
-        opts.dataSource.append(f"srtm{opts.srtmResolution:d}v{opts.srtmVersion:.1f}")
+        opts.dataSource.append("srtm3")
     else:
         # Input files provided, no download source
         opts.dataSource = []
-    needsEarthexplorerLogin = False
-    for s in opts.dataSource:
-        if s.startswith("srtm") and "v3" in s:
-            needsEarthexplorerLogin = True
-    if needsEarthexplorerLogin and not all(
-        (opts.earthexplorerUser, opts.earthexplorerPassword)
-    ):
-        # we need earthexplorer login credentials handling then
-
-        print(
-            "Need earthexplorer login credentials to continue.  See the help for the",
-        )
-        print(
-            "--earthexplorer-user and --earthexplorer-password options for details.",
-        )
-        print("-" * 60)
-        parser.print_help()
-        sys.exit(1)
 
     if len(opts.filenames) == 0 and not opts.area and not opts.polygon_file:
         parser.print_help()

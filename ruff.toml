@@ -90,7 +90,7 @@ lint.select = [
 ]
 target-version = "py39"
 # Ignore files not refactored yet
-exclude = ["NASASRTMUtil.py"]
+exclude = []
 
 
 # Same as black

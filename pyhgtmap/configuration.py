@@ -65,16 +65,11 @@ class Configuration(NestedConfig):
     gzip: int = 0
     pbf: bool = False
     o5m: bool = False
-    srtmResolution: int = 3
-    srtmVersion: float = 3.0
-    earthexplorerUser: str | None
-    earthexplorerPassword: str | None
     viewfinder: int = 0
     dataSource: list[str] | None
     srtmCorrx: float = 0.0
     srtmCorry: float = 0.0
-    hgtdir: str | None
-    rewriteIndices: bool = False
+    hgtdir: str = "hgt"
     voidMax: int = -0x8000
     logLevel: str = "WARNING"
     filenames: list[str]
