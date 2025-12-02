@@ -4,7 +4,7 @@ import os
 import sys
 from typing import TYPE_CHECKING, cast
 
-from configargparse import ArgumentParser
+from configargparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
 from pyhgtmap import __version__
 from pyhgtmap.configuration import CONFIG_FILENAME, Configuration, NestedConfig
@@ -19,46 +19,43 @@ ALL_SUPPORTED_SOURCES = Pool.available_sources_options()
 
 
 def build_common_parser() -> ArgumentParser:
+    """Build the common argument parser for pyhgtmap."""
+    default_config = Configuration()
     parser = ArgumentParser(
         default_config_files=[CONFIG_FILENAME],
+        formatter_class=ArgumentDefaultsHelpFormatter,
         usage="%(prog)s [options] [<hgt or GeoTiff file>] [<hgt or GeoTiff files>]"
-        "\npyhgtmap generates contour lines from NASA SRTM and similar data"
-        "\nas well as from GeoTiff data"
-        "\nin OSM formats.  For now, there are three ways to achieve this. First,"
-        "\nit can be used to process existing source files given as arguments"
-        "\non the command line.  Note that the filenames must have the format"
-        "\n[N|S]YY[W|E]XXX.hgt, with YY the latitude and XXX the longitude of the"
-        "\nlower left corner of the tile.  Second, it can be used with an area"
-        "\ndefinition as input.  The third way to use pyhgtmap is to specify a"
-        "\npolygon definition.  In the last two cases, pyhgtmap will look for a"
-        "\ncache directory (per default: ./hgt/) and the needed SRTM files.  If"
-        "\nno cache directory is found, it will be created.  It then downloads"
-        "\nall the needed NASA SRTM data files automatically if they are not cached"
-        "\nyet.  There is also the possibility of masking the NASA SRTM data with"
-        "\ndata from www.viewfinderpanoramas.org which fills voids and other data"
-        "\nlacking in the original NASA data set.  Since the 3 arc second data available"
-        "\nfrom www.viewfinderpanoramas.org is complete for the whole world,"
-        "\ngood results can be achieved by specifying --source=view3.  For higher"
-        "\nresolution, the 1 arc second SRTM data in version 3.0 can be used by"
-        "\nspecifying --source=srtm1 in combination with --srtm-version=3.0. "
-        "\nSRTM 1 arc second data is, however, only available for latitudes"
-        "\nbetween 59 degrees of latitude south and 60 degrees of latitude north.",
+        "\npyhgtmap generates contour lines from multiple elevation data sources"
+        "\nincluding NASA SRTM v3.0, GeoTiff data, and others via plugins."
+        "\nThere are three ways to use pyhgtmap: First, it can process existing"
+        "\nsource files given as command-line arguments.  Note that filenames must"
+        "\nhave the format [N|S]YY[W|E]XXX.hgt, with YY the latitude and XXX the"
+        "\nlongitude of the lower left corner of the tile.  Second, it can be used"
+        "\nwith an area definition as input.  Third, you can specify a polygon"
+        "\ndefinition.  In the latter two cases, pyhgtmap will look for a cache"
+        f"\ndirectory (default: '{default_config.hgtdir}') and download the needed elevation data files"
+        "\nautomatically if not cached.  If no cache directory is found, it will be"
+        "\ncreated.  Data sources are specified using the --sources parameter and can"
+        "\ninclude NASA SRTM (srtm1, srtm3), Viewfinder Panoramas (view1, view3),"
+        "\nALOS (alos1, alos3), and others.  For higher resolution data, use"
+        "\n--sources=srtm1 for 1 arc second NASA SRTM data (available between 60°S"
+        "\nand 60°N).  For global coverage at 3 arc second resolution, use"
+        "\n--sources=view3 or --sources=srtm3.  Multiple sources can be specified"
+        "\nas a comma-separated list; the first available source for each tile will be used.",
     )
     parser.add_argument(
         "-a",
         "--area",
-        help="choses the area to generate osm SRTM"
-        "\ndata for by bounding box. If necessary, files are downloaded from"
-        "\nthe NASA server. "
-        "\nSpecify as <left>:<bottom>:<right>:<top> in degrees of latitude"
-        "\nand longitude, respectively. Latitudes south of the equator and"
+        help="specify the area to generate contour OSM data for using a bounding box."
+        "\nIf necessary, elevation data files are downloaded from the configured"
+        "\ndata sources. Specify as <left>:<bottom>:<right>:<top> in degrees of"
+        "\nlatitude and longitude, respectively. Latitudes south of the equator and"
         "\nlongitudes west of Greenwich may be given as negative decimal numbers."
-        "\nIf this option is given, specified hgt"
-        "\nfiles will be omitted.",
+        "\nIf this option is given, any specified HGT files will be omitted.",
         dest="area",
         metavar="LEFT:BOTTOM:RIGHT:TOP",
         action="store",
-        default=None,
+        default=default_config.area,
     )
     parser.add_argument(
         "--polygon",
@@ -69,31 +66,31 @@ def build_common_parser() -> ArgumentParser:
         dest="polygon_file",
         action="store",
         metavar="FILENAME",
-        default=None,
+        default=default_config.polygon_file,
     )
     parser.add_argument(
         "--download-only",
         help="only download needed files,\ndon't write contour data.",
         action="store_true",
-        default=False,
+        default=default_config.downloadOnly,
         dest="downloadOnly",
     )
     parser.add_argument(
         "-s",
         "--step",
         help="specify contour line step size in"
-        "\nmeters or feet, if using the --feet option. The default value is 20.",
+        "\nmeters or feet, if using the --feet option.",
         dest="contourStepSize",
         metavar="STEP",
         action="store",
-        default="20",
+        default=default_config.contourStepSize,
     )
     parser.add_argument(
         "-f",
         "--feet",
         help="output contour lines in feet steps\nrather than in meters.",
         action="store_true",
-        default=False,
+        default=default_config.contourFeet,
         dest="contourFeet",
     )
     parser.add_argument(
@@ -103,7 +100,7 @@ def build_common_parser() -> ArgumentParser:
         "\nthe sea level contour line (0 m) (which sometimes looks rather ugly) to"
         "\nappear in the output.",
         action="store_true",
-        default=False,
+        default=default_config.noZero,
         dest="noZero",
     )
     parser.add_argument(
@@ -113,7 +110,7 @@ def build_common_parser() -> ArgumentParser:
         dest="outputPrefix",
         metavar="PREFIX",
         action="store",
-        default=None,
+        default=default_config.outputPrefix,
     )
     parser.add_argument(
         "-p",
@@ -123,18 +120,18 @@ def build_common_parser() -> ArgumentParser:
         "\nosm.",
         dest="plotPrefix",
         action="store",
-        default=None,
+        default=default_config.plotPrefix,
     )
     parser.add_argument(
         "-c",
         "--line-cat",
         help="specify a string of two comma"
         "\nseperated integers for major and medium elevation categories, e. g."
-        "\n'200,100' which is the default. This is needed for fancy rendering.",
+        f"\n'{default_config.lineCats}' which is the default. This is needed for fancy rendering.",
         dest="lineCats",
         metavar="ELEVATION_MAJOR,ELEVATION_MEDIUM",
         action="store",
-        default="200,100",
+        default=default_config.lineCats,
     )
     parser.add_argument(
         "-j",
@@ -143,17 +140,16 @@ def build_common_parser() -> ArgumentParser:
         dest="nJobs",
         action="store",
         type=int,
-        default=1,
+        default=default_config.nJobs,
     )
     parser.add_argument(
         "--osm-version",
         help="pass a number as OSM-VERSION to"
-        "\nuse for the output.  The default value is 0.6.  If you need an older"
-        "\nversion, try 0.5.",
+        "\nuse for the output. If you need an older version, try 0.5.",
         metavar="OSM-VERSION",
         dest="osmVersion",
         action="store",
-        default=0.6,
+        default=default_config.osmVersion,
         type=float,
     )
     parser.add_argument(
@@ -164,54 +160,54 @@ def build_common_parser() -> ArgumentParser:
         "\nuser information.",
         dest="writeTimestamp",
         action="store_true",
-        default=False,
+        default=default_config.writeTimestamp,
     )
     parser.add_argument(
         "--start-node-id",
         help="specify an integer as id of"
-        "\nthe first written node in the output OSM xml.  It defaults to 10000000"
+        f"\nthe first written node in the output OSM xml.  It defaults to {default_config.startId}"
         "\nbut some OSM xml mergers are running into trouble when encountering non"
         "\nunique ids.  In this case and for the moment, it is safe to say"
         "\n10000000000 (ten billion) then.",
         dest="startId",
         type=int,
-        default=10000000,
+        default=default_config.startId,
         action="store",
         metavar="NODE-ID",
     )
     parser.add_argument(
         "--start-way-id",
         help="specify an integer as id of"
-        "\nthe first written way in the output OSM xml.  It defaults to 10000000"
+        f"\nthe first written way in the output OSM xml.  It defaults to {default_config.startWayId}"
         "\nbut some OSM xml mergers are running into trouble when encountering non"
         "\nunique ids.  In this case and for the moment, it is safe to say"
         "\n10000000000 (ten billion) then.",
         dest="startWayId",
         type=int,
-        default=10000000,
+        default=default_config.startWayId,
         action="store",
         metavar="WAY-ID",
     )
     parser.add_argument(
         "--max-nodes-per-tile",
         help="specify an integer as a maximum"
-        "\nnumber of nodes per generated tile.  It defaults to 1000000,"
+        f"\nnumber of nodes per generated tile.  It defaults to {default_config.maxNodesPerTile},"
         "\nwhich is approximately the maximum number of nodes handled properly"
         "\nby mkgmap.  For bigger tiles, try higher values. For a single file"
         "\noutput, say 0 here (this disables any parallelization).",
         dest="maxNodesPerTile",
         type=int,
-        default=1000000,
+        default=default_config.maxNodesPerTile,
         action="store",
     )
     parser.add_argument(
         "--max-nodes-per-way",
         help="specify an integer as a maximum"
-        "\nnumber of nodes per way.  It defaults to 2000, which is the maximum value"
+        f"\nnumber of nodes per way.  It defaults to {default_config.maxNodesPerWay}, which is the maximum value"
         "\nfor OSM api version 0.6.  Say 0 here, if you want unsplitted ways.",
         dest="maxNodesPerWay",
         type=int,
-        default=2000,
+        default=default_config.maxNodesPerWay,
         action="store",
     )
     parser.add_argument(
@@ -226,11 +222,11 @@ def build_common_parser() -> ArgumentParser:
         "\noutput file size while preserving reasonable accuracy are dependent on"
         "\nthe file resolution.  For SRTM3 data, some value between 0.0001 and"
         "\n0.0005 seems reasonable, reducing the file size by something like one"
-        "\nor two thirds. The default is 0.0 value to remove dupe points and optimize"
+        f"\nor two thirds. The default is {default_config.rdpEpsilon} value to remove dupe points and optimize"
         "\nstraight lines.",
         dest="rdpEpsilon",
         type=float,
-        default=0.0,
+        default=default_config.rdpEpsilon,
         action="store",
         metavar="EPSILON",
     )
@@ -249,7 +245,7 @@ def build_common_parser() -> ArgumentParser:
         dest="smooth_ratio",
         action="store",
         type=float,
-        default=1.0,
+        default=default_config.smooth_ratio,
         metavar="SMOOTH_RATIO",
     )
 
@@ -262,7 +258,7 @@ def build_common_parser() -> ArgumentParser:
         "\nfaster computation, 9 means high compression and lower computation.",
         dest="gzip",
         action="store",
-        default=0,
+        default=default_config.gzip,
         metavar="COMPRESSLEVEL",
         type=int,
     )
@@ -273,7 +269,7 @@ def build_common_parser() -> ArgumentParser:
         "\nwant to use the output files with are capable of pbf parsing.  The"
         "\noutput files will have the .osm.pbf extension.",
         action="store_true",
-        default=False,
+        default=default_config.pbf,
         dest="pbf",
     )
     group.add_argument(
@@ -283,33 +279,24 @@ def build_common_parser() -> ArgumentParser:
         "\nwant to use the output files with are capable of o5m parsing.  The"
         "\noutput files will have the .o5m extension.",
         action="store_true",
-        default=False,
+        default=default_config.o5m,
         dest="o5m",
     )
+    # Backward compatible with old "source" option, thanks to argparse abbreviations
+    # https://docs.python.org/3/library/argparse.html#allow-abbrev
     parser.add_argument(
-        "--viewfinder-mask",
-        help="if specified, NASA SRTM data"
-        "\nare masked with data from www.viewfinderpanoramas.org.  Possible values"
-        "\nare 1 and 3 (for explanation, see the --srtm option).",
-        metavar="VIEWFINDER-RESOLUTION",
-        type=int,
-        default=0,
-        action="store",
-        dest="viewfinder",
-    )
-    parser.add_argument(
-        "--source",
-        "--data-source",
+        "--sources",
+        "--data-sources",
         help="specify a list of"
         "\nsources to use as comma-separated string.  Available sources are:\n"
         f"\n{', '.join(s for s in ALL_SUPPORTED_SOURCES)}.\nIf specified,"
-        "\nthe data source will be selected using this option as preference list."
-        "\nSpecifying --source=view3,srtm3 for example will prefer viewfinder 3"
+        "\nthe data sources will be selected using this option as preference list."
+        "\nSpecifying --sources=view3,srtm3 for example will prefer viewfinder 3"
         "\narc second data to NASA SRTM 3 arc second data.",
-        metavar="DATA-SOURCE",
+        metavar="DATA-SOURCES",
         type=lambda x: x.lower().split(","),
-        default=None,
-        dest="dataSource",
+        default=default_config.dataSources,
+        dest="dataSources",
     )
     parser.add_argument(
         "--corrx",
@@ -339,7 +326,7 @@ def build_common_parser() -> ArgumentParser:
         "--hgtdir",
         help="Cache directory for hgt files."
         "\nThe downloaded SRTM files are stored in a cache directory for later use."
-        "\nThe default directory for this is ./hgt/ in the current directory.  You can"
+        f"\nThe default directory for this is '{default_config.hgtdir}' in the current directory.  You can"
         "\nspecify another cache directory with this option.",
         dest="hgtdir",
         action="store",
@@ -400,26 +387,10 @@ def parse_command_line(sys_args: list[str]) -> tuple[Configuration, list[str]]:
 
     opts: Configuration = parser.parse_args(sys_args, namespace=root_configuration)
 
-    if opts.viewfinder not in [0, 1, 3]:
-        sys.stderr.write(
-            "The --viewfinder-mask option can only take '1' or '3' as values."
-            "  Won't use viewfinder data.\n",
-        )
-        opts.viewfinder = 0
-    if opts.dataSource:
-        for s in opts.dataSource:
-            if s[:5] not in ALL_SUPPORTED_SOURCES:
-                print(f"Unknown data source: {s:s}")
-                sys.exit(1)
-    elif len(opts.filenames) == 0:
-        # No explicit source nor input provided, try to download using default
-        opts.dataSource = []
-        if opts.viewfinder != 0:
-            opts.dataSource.append(f"view{opts.viewfinder:d}")
-        opts.dataSource.append("srtm3")
-    else:
-        # Input files provided, no download source
-        opts.dataSource = []
+    for s in opts.dataSources:
+        if s[:5] not in ALL_SUPPORTED_SOURCES:
+            print(f"Unknown data source: {s:s}")
+            sys.exit(1)
 
     if len(opts.filenames) == 0 and not opts.area and not opts.polygon_file:
         parser.print_help()
@@ -433,7 +404,7 @@ def parse_command_line(sys_args: list[str]) -> tuple[Configuration, list[str]]:
         if not os.path.isfile(opts.polygon_file):
             print(f"Polygon file '{opts.polygon_file:s}' is not a regular file")
             sys.exit(1)
-        opts.area, opts.polygon = parse_polygons_file(opts.polygon_file)
+        opts.area, opts.polygons = parse_polygons_file(opts.polygon_file)
     elif opts.downloadOnly and not opts.area:
         # no area, no polygon, so nothing to download
         sys.stderr.write(

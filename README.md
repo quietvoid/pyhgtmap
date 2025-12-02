@@ -30,13 +30,15 @@ OSM servers but to use it for fancy maps.
 
 # Sources
 
-pyhgtmap supports several HGT data sources. Those are identified by a 4-character "nickname" + one digit resolution suffix, which can be specified with the `--source` parameter of pyhgtmap.
+pyhgtmap supports several HGT data sources. Those are identified by a 4-character "nickname" + one digit resolution suffix, which can be specified with the `--sources` parameter of pyhgtmap.
 
 ## SRTM
 
 [NASA Shuttle Radar Topography Mission v3.0](https://www.earthdata.nasa.gov/news/nasa-shuttle-radar-topography-mission-srtm-version-3-0-global-1-arc-second-data-released-over-asia-and-australia)
 
 *Available for 1" and 3" resolutions.*
+
+*This source requires TIFF support.*
 
 This source requires creating an earthexplorer account on https://ers.cr.usgs.gov/register/.
 
@@ -122,6 +124,8 @@ Example:
 ```
 alos-user: myuser
 alos-password: mypassword
+srtm-user: someotheruser
+srtm-password: someotherpassword
 ```
 
 If a value is specified in more than one way then: command line > environment variables > config file values > defaults.
@@ -131,7 +135,7 @@ If a value is specified in more than one way then: command line > environment va
 Generating contours for France [PACA region](https://download.geofabrik.de/europe/france/provence-alpes-cote-d-azur.html) with a 10m step and 0.00001 RDP Epsilon (taking less than a minute on Intel 13600K via Windows WSL 1):
 
 ```
-> pyhgtmap --polygon=provence-alpes-cote-d-azur/provence-alpes-cote-d-azur.poly --step=10 --pbf --hgtdir=work/hgt --source=view1,view3 --simplifyContoursEpsilon=0.00001 -j16
+> pyhgtmap --polygon=provence-alpes-cote-d-azur/provence-alpes-cote-d-azur.poly --step=10 --pbf --hgtdir=work/hgt --sources=view1,view3 --simplifyContoursEpsilon=0.00001 -j16
 ...
 > du -shc lon*.pbf |tail -3
 196K    lon7.00_7.75lat44.69_44.75_view1.osm.pbf

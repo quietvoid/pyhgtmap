@@ -30,6 +30,7 @@ def make_osm_filename(
         for srcName in input_files_names
     ]
     for srcNameMiddle in set(srcNameMiddles):
+        # TODO: review this logic
         if srcNameMiddle.lower()[:5] in [
             "srtm1",
             "srtm3",
@@ -39,7 +40,7 @@ def make_osm_filename(
             "sonn3",
         ]:
             continue
-        elif not opts.dataSource:
+        elif not opts.dataSources:
             # files from the command line, this could be something custom
             srcTag = ",".join(set(srcNameMiddles))
             # osmName = hgt.makeBBoxString(borders).format(prefix) + "_{0:s}.osm".format(srcTag)
@@ -49,9 +50,9 @@ def make_osm_filename(
             osmName = hgt.makeBBoxString(borders).format(prefix) + ".osm"
             break
     else:
-        if not opts.dataSource:
-            raise ValueError("opts.dataSource is not defined")
-        srcTag = ",".join([s for s in opts.dataSource if s in set(srcNameMiddles)])
+        if not opts.dataSources:
+            raise ValueError("opts.dataSources is not defined")
+        srcTag = ",".join([s for s in opts.dataSources if s in set(srcNameMiddles)])
         osmName = hgt.makeBBoxString(borders).format(prefix) + f"_{srcTag:s}.osm"
     if opts.gzip:
         osmName += ".gz"

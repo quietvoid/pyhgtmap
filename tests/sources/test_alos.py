@@ -60,12 +60,12 @@ def get_alos_zipped_file(alos_area: str) -> BytesIO:
 
 
 @pytest.fixture
-def alos_configuration(configuration: Configuration) -> Configuration:
+def alos_configuration(test_configuration: Configuration) -> Configuration:
     alos_specific = AlosConfiguration()
-    configuration.add_sub_config("alos", alos_specific)
+    test_configuration.add_sub_config("alos", alos_specific)
     alos_specific.user = "user"
     alos_specific.password = "password"  # noqa: S105
-    return configuration
+    return test_configuration
 
 
 class TestAlos:

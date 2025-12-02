@@ -23,7 +23,7 @@ def main_internal(sys_args: list[str]) -> None:
     hgtDataFiles: list[tuple[str, bool]]
     if args:
         # Prefer using any manually provided source file
-        use_poly_flag = opts.polygon is not None
+        use_poly_flag = opts.polygons is not None
         hgtDataFiles = [
             (arg, use_poly_flag)
             for arg in args
@@ -40,14 +40,14 @@ def main_internal(sys_args: list[str]) -> None:
         logger.debug(f"Downloading HGT files for area {opts.area}")
         if not opts.area:
             raise ValueError("opts.area is not defined")
-        if not opts.dataSource:
-            raise ValueError("opts.dataSource is not defined")
+        if not opts.dataSources:
+            raise ValueError("opts.dataSources is not defined")
         hgtDataFiles = NASASRTMUtil.get_files(
             opts.area,
-            opts.polygon,
+            opts.polygons,
             opts.srtmCorrx,
             opts.srtmCorry,
-            opts.dataSource,
+            opts.dataSources,
             opts,
         )
         if len(hgtDataFiles) == 0:

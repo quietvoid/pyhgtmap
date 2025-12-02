@@ -28,14 +28,14 @@ class SomeTestSource(Source):
 
 class TestSource:
     @staticmethod
-    def test_get_cache_dir(configuration: Configuration) -> None:
+    def test_get_cache_dir(test_configuration: Configuration) -> None:
         """Cache dir name generation is resolution specific."""
-        source = SomeTestSource("cache_dir", "conf_dir", configuration)
+        source = SomeTestSource("cache_dir", "conf_dir", test_configuration)
         assert source.get_cache_dir(1) == os.path.join("cache_dir", "TEST1")
 
     @staticmethod
-    def test_check_cached_file(configuration: Configuration) -> None:
-        source = SomeTestSource("cache_dir", "conf_dir", configuration)
+    def test_check_cached_file(test_configuration: Configuration) -> None:
+        source = SomeTestSource("cache_dir", "conf_dir", test_configuration)
         with TemporaryDirectory() as temp_dir:
             # Create fake file - size must match expected static size depending on resolution
             hgt_file_size = 2884802
@@ -47,8 +47,8 @@ class TestSource:
             source.check_cached_file(hgt_file_name, 3)
 
     @staticmethod
-    def test_check_cached_file_tif(configuration: Configuration) -> None:
-        source = SomeTestSource("cache_dir", "conf_dir", configuration)
+    def test_check_cached_file_tif(test_configuration: Configuration) -> None:
+        source = SomeTestSource("cache_dir", "conf_dir", test_configuration)
         with TemporaryDirectory() as temp_dir:
             # Create fake file - don't care about size
             outfile_path = Path(temp_dir, "N42E004.tif")
@@ -58,9 +58,9 @@ class TestSource:
             source.check_cached_file(str(outfile_path), 3)
 
     @staticmethod
-    def test_check_cached_file_invalid_size(configuration: Configuration) -> None:
+    def test_check_cached_file_invalid_size(test_configuration: Configuration) -> None:
         """Exception raised on existing file with invalid size."""
-        source = SomeTestSource("cache_dir", "conf_dir", configuration)
+        source = SomeTestSource("cache_dir", "conf_dir", test_configuration)
         with TemporaryDirectory() as temp_dir:
             # Create fake file with invalid size
             hgt_file_size = 2
@@ -77,24 +77,26 @@ class TestSource:
                 source.check_cached_file(hgt_file_name, 1)
 
     @staticmethod
-    def test_check_cached_file_doesnt_exist(configuration: Configuration) -> None:
+    def test_check_cached_file_doesnt_exist(test_configuration: Configuration) -> None:
         """Exception raised on missing file."""
-        source = SomeTestSource("cache_dir", "conf_dir", configuration)
+        source = SomeTestSource("cache_dir", "conf_dir", test_configuration)
         with pytest.raises(IOError, match=r": 'missing.hgt'"):
             source.check_cached_file("missing.hgt", 3)
 
     @staticmethod
-    def test_check_cached_file_doesnt_exist_tif(configuration: Configuration) -> None:
+    def test_check_cached_file_doesnt_exist_tif(
+        test_configuration: Configuration,
+    ) -> None:
         """Exception raised on missing file."""
-        source = SomeTestSource("cache_dir", "conf_dir", configuration)
+        source = SomeTestSource("cache_dir", "conf_dir", test_configuration)
         with pytest.raises(IOError, match=r"File missing.tif not found"):
             source.check_cached_file("missing.tif", 3)
 
     @staticmethod
-    def test_get_file_from_cache(configuration: Configuration) -> None:
+    def test_get_file_from_cache(test_configuration: Configuration) -> None:
         """Re-using file already existing in cache."""
         # Prepare
-        source = SomeTestSource("cache_dir", "conf_dir", configuration)
+        source = SomeTestSource("cache_dir", "conf_dir", test_configuration)
         resolution = 3
         area = "N42E004"
         # Does nothing, but especially doesn't raise exception
@@ -116,11 +118,11 @@ class TestSource:
         )
 
     @staticmethod
-    def test_get_file_download(configuration: Configuration) -> None:
+    def test_get_file_download(test_configuration: Configuration) -> None:
         """Download missing cache file."""
         with TemporaryDirectory() as cache_dir:
             # Prepare
-            source = SomeTestSource(cache_dir, "conf_dir", configuration)
+            source = SomeTestSource(cache_dir, "conf_dir", test_configuration)
             resolution = 3
             area = "N42E004"
             source.check_cached_file = MagicMock(  # type: ignore[method-assign]
@@ -154,10 +156,10 @@ class TestSource:
             )
 
     @staticmethod
-    def test_get_file_download_corrupted(configuration: Configuration) -> None:
+    def test_get_file_download_corrupted(test_configuration: Configuration) -> None:
         """Download missing cache file, but corrupted output."""
         # Prepare
-        source = SomeTestSource("cache_dir", "conf_dir", configuration)
+        source = SomeTestSource("cache_dir", "conf_dir", test_configuration)
         resolution = 3
         area = "N42E004"
         source.check_cached_file = MagicMock(  # type: ignore[method-assign]
@@ -185,10 +187,10 @@ class TestSource:
         assert file_name is None
 
     @staticmethod
-    def test_get_file_not_found(configuration: Configuration) -> None:
+    def test_get_file_not_found(test_configuration: Configuration) -> None:
         """File not in cache and can't be downloaded either."""
         # Prepare
-        source = SomeTestSource("cache_dir", "conf_dir", configuration)
+        source = SomeTestSource("cache_dir", "conf_dir", test_configuration)
         resolution = 3
         area = "N42E004"
         source.check_cached_file = MagicMock(  # type: ignore[method-assign]
@@ -215,10 +217,10 @@ class TestSource:
 
     @staticmethod
     def test_show_banner(
-        caplog: pytest.LogCaptureFixture, configuration: Configuration
+        caplog: pytest.LogCaptureFixture, test_configuration: Configuration
     ) -> None:
         # Prepare
-        source = SomeTestSource("cache_dir", "conf_dir", configuration)
+        source = SomeTestSource("cache_dir", "conf_dir", test_configuration)
         caplog.set_level(logging.INFO, logger="pyhgtmap.sources")
 
         source.check_cached_file = MagicMock(  # type: ignore[method-assign]

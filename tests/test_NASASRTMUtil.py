@@ -20,17 +20,17 @@ from . import TEST_DATA_PATH
 
 
 def test_getFiles_no_source(
-    configuration: Configuration,
+    test_configuration: Configuration,
 ) -> None:
     """No source, no file..."""
-    files = get_files("1:2:3:4", None, 0, 0, [], configuration)
+    files = get_files("1:2:3:4", None, 0, 0, [], test_configuration)
     assert files == []
 
 
 @patch("pyhgtmap.NASASRTMUtil.Pool", spec=True)
 def test_getFiles_sonn3_no_poly(
     pool_mock: MagicMock,
-    configuration: Configuration,
+    test_configuration: Configuration,
 ) -> None:
     """Basic test with a single source, no polygon provided."""
 
@@ -44,7 +44,7 @@ def test_getFiles_sonn3_no_poly(
 
     pool_mock.return_value.available_sources_names.return_value = ["sonn"]
 
-    files = get_files("1:2:3:4", None, 0, 0, ["sonn3"], configuration)
+    files = get_files("1:2:3:4", None, 0, 0, ["sonn3"], test_configuration)
 
     pool_mock.return_value.get_source.assert_called_with("sonn")
     assert pool_mock.return_value.get_source.return_value.get_file.call_args_list == [
@@ -64,7 +64,7 @@ def test_getFiles_sonn3_no_poly(
 @patch("pyhgtmap.NASASRTMUtil.SourcesPool", spec=True)
 def test_getFiles_multi_sources(
     sources_pool_mock: MagicMock,
-    configuration: Configuration,
+    test_configuration: Configuration,
 ) -> None:
     """2 sources, handling proper priority."""
 
@@ -77,7 +77,7 @@ def test_getFiles_multi_sources(
         "hgt/SONN3/N03E002.hgt",
     ]
 
-    files = get_files("1:2:3:4", None, 0, 0, ["sonn3", "view1"], configuration)
+    files = get_files("1:2:3:4", None, 0, 0, ["sonn3", "view1"], test_configuration)
 
     assert sources_pool_mock.return_value.get_file.call_args_list == [
         call("N02E001", "sonn3"),

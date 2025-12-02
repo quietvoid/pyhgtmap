@@ -38,7 +38,7 @@ def test_main_download_from_poly(
     # Prepare
     sys_args: list[str] = [
         "--pbf",
-        "--source=view1",
+        "--sources=view1",
         f"--polygon={os.path.join(TEST_DATA_PATH, 'france.poly')}",
     ]
     NASASRTMUtil_mock.get_files.return_value = [
@@ -83,7 +83,7 @@ def test_main_manual_input_poly(
     # Prepare
     sys_args = [
         "--pbf",
-        "--source=view1",
+        "--sources=view1",
         f"--polygon={os.path.join(TEST_DATA_PATH, 'france.poly')}",
         "N45E007.hgt",
         "N46E007.hgt",

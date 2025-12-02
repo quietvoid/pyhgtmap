@@ -237,34 +237,34 @@ class TestSRTM:
 
     @pytest.fixture
     def srtm_instance(
-        self, configuration: "Configuration", fake_credential: FakeCredential
+        self, test_configuration: "Configuration", fake_credential: FakeCredential
     ) -> Generator[SRTM, Any, None]:
         """Create a SRTM instance with mocked credentials."""
         from pyhgtmap.sources.srtm import SRTMConfiguration
 
         with TemporaryDirectory() as temp_dir:
             # Set up required configuration
-            configuration.add_sub_config("srtm", SRTMConfiguration())
-            configuration.srtm.user = fake_credential.user
-            configuration.srtm.password = fake_credential.password
+            test_configuration.add_sub_config("srtm", SRTMConfiguration())
+            test_configuration.srtm.user = fake_credential.user
+            test_configuration.srtm.password = fake_credential.password
 
-            srtm = SRTM(temp_dir, temp_dir, configuration)
+            srtm = SRTM(temp_dir, temp_dir, test_configuration)
             yield srtm
 
     def test_srtm_init_success(
         self,
-        configuration: "Configuration",
+        test_configuration: "Configuration",
         fake_credential: FakeCredential,
     ) -> None:
         """SRTM instance initializes successfully with credentials."""
         from pyhgtmap.sources.srtm import SRTMConfiguration
 
         with TemporaryDirectory() as temp_dir:
-            configuration.add_sub_config("srtm", SRTMConfiguration())
-            configuration.srtm.user = fake_credential.user
-            configuration.srtm.password = fake_credential.password
+            test_configuration.add_sub_config("srtm", SRTMConfiguration())
+            test_configuration.srtm.user = fake_credential.user
+            test_configuration.srtm.password = fake_credential.password
 
-            srtm = SRTM(temp_dir, temp_dir, configuration)
+            srtm = SRTM(temp_dir, temp_dir, test_configuration)
 
             assert srtm.NICKNAME == "srtm"
             assert srtm.FILE_EXTENSION == "tif"
@@ -275,32 +275,32 @@ class TestSRTM:
             assert 3 in srtm._indexes  # noqa: SLF001
 
     def test_srtm_init_missing_user(
-        self, configuration: "Configuration", fake_credential: FakeCredential
+        self, test_configuration: "Configuration", fake_credential: FakeCredential
     ) -> None:
         """SRTM initialization fails when user is missing."""
         from pyhgtmap.sources.srtm import SRTMConfiguration
 
         with TemporaryDirectory() as temp_dir:
-            configuration.add_sub_config("srtm", SRTMConfiguration())
-            configuration.srtm.user = None
-            configuration.srtm.password = fake_credential.password
+            test_configuration.add_sub_config("srtm", SRTMConfiguration())
+            test_configuration.srtm.user = None
+            test_configuration.srtm.password = fake_credential.password
 
             with pytest.raises(ValueError, match="SRTM user and password are required"):
-                SRTM(temp_dir, temp_dir, configuration)
+                SRTM(temp_dir, temp_dir, test_configuration)
 
     def test_srtm_init_missing_password(
-        self, configuration: "Configuration", fake_credential: FakeCredential
+        self, test_configuration: "Configuration", fake_credential: FakeCredential
     ) -> None:
         """SRTM initialization fails when password is missing."""
         from pyhgtmap.sources.srtm import SRTMConfiguration
 
         with TemporaryDirectory() as temp_dir:
-            configuration.add_sub_config("srtm", SRTMConfiguration())
-            configuration.srtm.user = fake_credential.user
-            configuration.srtm.password = None
+            test_configuration.add_sub_config("srtm", SRTMConfiguration())
+            test_configuration.srtm.user = fake_credential.user
+            test_configuration.srtm.password = None
 
             with pytest.raises(ValueError, match="SRTM user and password are required"):
-                SRTM(temp_dir, temp_dir, configuration)
+                SRTM(temp_dir, temp_dir, test_configuration)
 
     def test_srtm_nickname(self) -> None:
         """SRTM has correct nickname."""

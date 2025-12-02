@@ -61,8 +61,8 @@ def test_dupe_nickname() -> None:
 
 
 @pytest.fixture
-def pool(configuration: Configuration) -> Pool:
-    return Pool("root_dir", "cfg_dir", configuration)
+def pool(test_configuration: Configuration) -> Pool:
+    return Pool("root_dir", "cfg_dir", test_configuration)
 
 
 class TestPool:
@@ -78,11 +78,13 @@ class TestPool:
         assert isinstance(pool.get_source("dumm"), DummySource)
 
     @staticmethod
-    def test_source_caching(pool: Pool, configuration: Configuration) -> None:
+    def test_source_caching(pool: Pool, test_configuration: Configuration) -> None:
         """Same source must be re-used on sub-sequent calls, per pool."""
         assert id(pool.get_source("dumm")) == id(pool.get_source("dumm"))
         # Objects from a new pool will be different
-        assert id(Pool("root_dir", "cfg_dir", configuration).get_source("dumm")) != id(
+        assert id(
+            Pool("root_dir", "cfg_dir", test_configuration).get_source("dumm")
+        ) != id(
             pool.get_source("dumm"),
         )
 
