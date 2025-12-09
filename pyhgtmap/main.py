@@ -35,6 +35,8 @@ def main_internal(sys_args: list[str]) -> None:
                 for i in calc_hgt_area(hgtDataFiles, opts.srtmCorrx, opts.srtmCorry)
             ],
         )
+        # sources are not used in this case
+        opts.dataSources = []
     else:
         # Download from area or polygon
         logger.debug(f"Downloading HGT files for area {opts.area}")

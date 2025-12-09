@@ -9,13 +9,10 @@ from configargparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 from pyhgtmap import __version__
 from pyhgtmap.configuration import CONFIG_FILENAME, Configuration, NestedConfig
 from pyhgtmap.hgt.file import parse_polygons_file
-from pyhgtmap.sources.pool import Pool
+from pyhgtmap.sources.pool import ALL_SUPPORTED_SOURCES, Pool
 
 if TYPE_CHECKING:
     from pyhgtmap.sources import Source
-
-# Built from available sources plugins
-ALL_SUPPORTED_SOURCES = Pool.available_sources_options()
 
 
 def build_common_parser() -> ArgumentParser:
