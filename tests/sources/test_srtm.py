@@ -425,6 +425,49 @@ class TestSRTM:
             with pytest.raises(ValueError, match="Unexpected content type"):
                 srtm_instance.download_missing_file("N43E006", 1, output_file)
 
+    @pytest.mark.parametrize(
+        ("json_content", "expected_exception"),
+        [
+            (
+                '{"errorMessage": "Invalid scene or product", "isPending": false, "url": null}',
+                FileNotFoundError,
+            ),
+            (
+                '{"url": null, "errorMessage": "Invalid scene or product", "isPending": false}',
+                FileNotFoundError,
+            ),
+            (
+                '{"errorMessage": "Invalid scene or product",  "isPending": false, "url": null}',
+                FileNotFoundError,
+            ),
+            ("Another payload", ValueError),
+        ],
+    )
+    def test_download_missing_file_invalid_scene_json(
+        self,
+        srtm_instance: SRTM,
+        httpx_mock_successful_srtm_login: HTTPXMock,
+        json_content: str,
+        expected_exception: type[Exception],
+    ) -> None:
+        """Download raises FileNotFoundError on known invalid scene JSON."""
+        with TemporaryDirectory() as temp_dir:
+            output_file = os.path.join(temp_dir, "N42E049.tif")
+
+            # Mock invalid scene JSON response
+            httpx_mock_successful_srtm_login.add_response(
+                url="https://earthexplorer.usgs.gov/download/5e83a3efe0103743/SRTM1N42E049V3/EE",
+                method="GET",
+                text=json_content,
+                headers={"Content-Type": "application/json; charset=utf-8"},
+            )
+
+            # Mock the _entries set directly (private attribute)
+            srtm_instance._indexes[1]._entries = {"N42E049"}  # noqa: SLF001
+
+            with pytest.raises(expected_exception):
+                srtm_instance.download_missing_file("N42E049", 1, output_file)
+
     def test_register_cli_options(self) -> None:
         """SRTM registers CLI options."""
         import configargparse

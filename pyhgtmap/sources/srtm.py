@@ -250,6 +250,16 @@ class SRTM(Source):
             r = self.client.get(url, follow_redirects=True)
             r.raise_for_status()
             if r.headers["Content-Type"] != "image/tiff":
+                if r.headers[
+                    "Content-Type"
+                ] == "application/json; charset=utf-8" and r.json() == {
+                    "errorMessage": "Invalid scene or product",
+                    "isPending": False,
+                    "url": None,
+                }:
+                    # Known issue: some tiles are not available
+                    # See https://www.opentopodata.org/notes/invalid-srtm-zips/
+                    raise FileNotFoundError
                 raise ValueError(
                     f"Unexpected content type: {r.headers['Content-Type']}"
                 )
