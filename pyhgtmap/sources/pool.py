@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
     from pyhgtmap.configuration import Configuration
 
-__all__ = ["Pool"]
+__all__ = ["ALL_SUPPORTED_SOURCES", "Pool"]
 
 
 class Pool:
@@ -54,7 +54,10 @@ class Pool:
 
     @classmethod
     def available_sources_options(cls) -> list[str]:
-        """Returns available sources' nickname+resolution combinations for CLI validation."""
+        """
+        Returns available sources' nickname+resolution combinations for CLI validation.
+        Eg. ["srtm1", "srtm3", "view1", "view3", "sonn1", "sonn3"]
+        """
         return list(
             chain(
                 *[
@@ -69,7 +72,7 @@ class Pool:
 
     @classmethod
     def registered_sources(cls) -> Generator[type[Source], None, None]:
-        """Returns a registered sources types."""
+        """Returns a generator of registered sources types."""
         return cls._inner_registry.values()
 
 
@@ -80,3 +83,6 @@ for module_info in pkgutil.iter_modules([os.path.dirname(__file__)]):
     if full_module_name == __name__:
         continue
     importlib.import_module(full_module_name)
+
+
+ALL_SUPPORTED_SOURCES: list[str] = Pool.available_sources_options()

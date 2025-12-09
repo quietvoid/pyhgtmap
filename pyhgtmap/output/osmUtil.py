@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Callable
 import numpy
 
 import pyhgtmap.output
+from pyhgtmap import BBox
 from pyhgtmap.varint import writableString
 
 if TYPE_CHECKING:
@@ -15,11 +16,17 @@ if TYPE_CHECKING:
     from pyhgtmap.hgt.tile import TileContours
 
 
-def makeUtcTimestamp():
+def make_utc_timestamp() -> str:
     return (
         datetime.datetime.utcfromtimestamp(time.mktime(time.localtime())).isoformat()
         + "Z"
     )
+
+
+def make_bounds_tag(bbox: BBox) -> str:
+    """returns an OSM XML bounds tag."""
+
+    return f'<bounds minlat="{bbox.min_lat:.7f}" minlon="{bbox.min_lon:.7f}" maxlat="{bbox.max_lat:.7f}" maxlon="{bbox.max_lon:.7f}"/>'
 
 
 class Output(pyhgtmap.output.Output):
@@ -38,7 +45,7 @@ class Output(pyhgtmap.output.Output):
         fName: str,
         osmVersion: float,
         pyhgtmap_version: str,
-        boundsTag: str,
+        bbox: BBox,
         gzip: int,
         elevClassifier: Callable[[int], str],
         timestamp=False,
@@ -57,12 +64,12 @@ class Output(pyhgtmap.output.Output):
         else:
             self.versionString = ""
         if timestamp:
-            self.timestampString = f' timestamp="{makeUtcTimestamp():s}"'
+            self.timestampString = f' timestamp="{make_utc_timestamp():s}"'
         else:
             self.timestampString = ""
         self.elevClassifier = elevClassifier
         self.pyhgtmap_version = pyhgtmap_version
-        self.boundsTag = boundsTag
+        self.boundsTag = make_bounds_tag(bbox)
         self._writePreamble()
 
     def _writePreamble(self):

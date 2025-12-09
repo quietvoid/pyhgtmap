@@ -9,7 +9,7 @@ from pyhgtmap.configuration import Configuration
 
 
 @pytest.fixture
-def configuration() -> Configuration:
+def test_configuration() -> Configuration:
     return Configuration()
 
 

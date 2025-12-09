@@ -163,7 +163,9 @@ def check_osmium_result(osm_file_name: str) -> None:
 
 class TestOutputOsm:
     @staticmethod
-    def test_produce_osm(tile_contours: TileContours, elev_classifier) -> None:
+    def test_produce_osm(
+        tile_contours: TileContours, elev_classifier, bounding_box: BBox
+    ) -> None:
         """Generate OSM file out of mocked data and check content."""
         with tempfile.TemporaryDirectory() as tempdir:
             osm_file_name = os.path.join(tempdir, "output.osm")
@@ -171,7 +173,7 @@ class TestOutputOsm:
                 osm_file_name,
                 osmVersion=0.6,
                 pyhgtmap_version="123",
-                boundsTag='<bounds minlat="1" minlon="1" maxlat="2" maxlon="4"/>',
+                bbox=bounding_box,
                 gzip=0,
                 elevClassifier=elev_classifier,
                 timestamp=False,
@@ -195,7 +197,7 @@ class TestOutputOsm:
                 contents
                 == """<?xml version="1.0" encoding="utf-8"?>
 <osm version="0.6" generator="pyhgtmap 123">
-<bounds minlat="1" minlon="1" maxlat="2" maxlon="4"/>
+<bounds minlat="1.0000000" minlon="1.0000000" maxlat="2.0000000" maxlon="4.0000000"/>
 <node id="1000" lat="1.0000000" lon="1.0000000" version="1" time="some time"/>
 <node id="1001" lat="2.0000000" lon="1.0000000" version="1" time="some time"/>
 <node id="1002" lat="2.0000000" lon="2.0000000" version="1" time="some time"/>

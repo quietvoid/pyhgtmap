@@ -38,19 +38,25 @@ class NestedConfig(Namespace):
 class Configuration(NestedConfig):
     """Configuration for pyhgtmap."""
 
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        # List type default values must be set in __init__
+        if "dataSources" not in self.__dict__:
+            self.dataSources = ["srtm3"]
+
     # Work-around to get typing without a full refactoring of the parser, while
     # providing typing.
     # Sadly some parts have to be duplicated...
 
-    area: str | None
-    polygon_file: str | None
-    polygon: PolygonsList | None = None
+    area: str | None = None
+    polygon_file: str | None = None
+    polygons: PolygonsList | None = None
     downloadOnly: bool = False
     contourStepSize: str = "20"
     contourFeet: bool = False
     noZero: bool = False
-    outputPrefix: str | None
-    plotPrefix: str | None
+    outputPrefix: str | None = None
+    plotPrefix: str | None = None
     lineCats: str = "200,100"
     nJobs: int = 1
     osmVersion: float = 0.6
@@ -60,21 +66,16 @@ class Configuration(NestedConfig):
     maxNodesPerTile: int = 1000000
     maxNodesPerWay: int = 2000
     rdpEpsilon: float | None = 0.0
-    disableRdp: bool | None
+    disableRdp: bool | None = False
     smooth_ratio: float = 1.0
     gzip: int = 0
     pbf: bool = False
     o5m: bool = False
-    srtmResolution: int = 3
-    srtmVersion: float = 3.0
-    earthexplorerUser: str | None
-    earthexplorerPassword: str | None
     viewfinder: int = 0
-    dataSource: list[str] | None
+    dataSources: list[str]
     srtmCorrx: float = 0.0
     srtmCorry: float = 0.0
-    hgtdir: str | None
-    rewriteIndices: bool = False
+    hgtdir: str = "hgt"
     voidMax: int = -0x8000
     logLevel: str = "WARNING"
     filenames: list[str]

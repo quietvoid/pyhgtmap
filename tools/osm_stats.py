@@ -20,14 +20,18 @@ class Counter(npyosmium.SimpleHandler):
         self.num_nodes = 0
         self.num_ways = 0
         self.num_relations = 0
+        self.max_node_id = 0
+        self.max_way_id = 0
 
     # this method runs for each node
     def node(self, n):
         self.num_nodes += 1
+        self.max_node_id = max(self.max_node_id, n.id)
 
     # this method runs for each way
     def way(self, w):
         self.num_ways += 1
+        self.max_way_id = max(self.max_way_id, w.id)
 
     # this method runs for each relation
     def relation(self, r):
@@ -41,9 +45,11 @@ def main() -> None:
 
         print(f"File name: {file_name}")
         print(f"File size: {os.stat(file_name).st_size / 1024:.2f} KiB")
-        print(f"Number of nodes : {counter.num_nodes}")
-        print(f"Number of ways : {counter.num_ways}")
+        print(f"Number of nodes: {counter.num_nodes}")
+        print(f"Number of ways: {counter.num_ways}")
         print(f"Number of relations: {counter.num_relations}\n")
+        print(f"Max node id: {counter.max_node_id}")
+        print(f"Max way id: {counter.max_way_id}")
 
 
 if __name__ == "__main__":

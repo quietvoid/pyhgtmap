@@ -233,7 +233,7 @@ class HgtFilesProcessor:
             file_name,
             self.options.srtmCorrx,
             self.options.srtmCorry,
-            self.options.polygon,
+            self.options.polygons,
             check_poly,
             self.options.voidMax,
             self.options.contourFeet,

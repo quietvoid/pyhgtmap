@@ -14,7 +14,6 @@ from unittest import mock
 from unittest.mock import MagicMock, Mock
 
 import npyosmium
-import npyosmium.io
 import npyosmium.osm
 import pytest
 
@@ -147,7 +146,7 @@ def default_options() -> Configuration:
         noZero=False,
         rdpEpsilon=0.00001,
         outputPrefix=None,
-        dataSource=None,
+        dataSources=[],
         gzip=0,
         pbf=True,
         lineCats="200,100",
